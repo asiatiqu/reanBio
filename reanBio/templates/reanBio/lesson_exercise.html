@@ -23,7 +23,7 @@
 
     <div class="bg-white/95 backdrop-blur-md rounded-[35px] border border-white shadow-lg p-8 md:p-10 space-y-6">
         {% if question_count == 0 %}
-        <div class="col-span-full py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-[30px] bg-white/40">
+        <div class="col-span-full py-10 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-[30px] bg-white/40">
             <span class="text-5xl">📭</span>
             <p class="font-semibold text-slate-700 mt-2">บทเรียนนี้ยังไม่มีแบบฝึกหัด</p>
         </div>
@@ -40,7 +40,30 @@
                 📄 ดาวน์โหลด PDF ไปทำบนกระดาษ
             </a>
         </div>
+        {% endif %}
 
+        {% if exam_pool_count > 0 %}
+        <div class="p-6 bg-bio-light/40 border border-bio-light rounded-3xl">
+            <h2 class="text-base font-bold text-bio-dark flex items-center gap-2 mb-1">
+                🎯 ทำข้อสอบบทที่ {{ lesson.chapter }} (สุ่มจากทั้งบท)
+            </h2>
+            <p class="text-xs text-slate-500 mb-4">สุ่มคำถามจากทุกหัวข้อในบทที่ {{ lesson.chapter }} มีคำถามในคลังทั้งหมด {{ exam_pool_count }} ข้อ คะแนนจะถูกเก็บแยกจากแบบฝึกหัดและแสดงในแดชบอร์ดของคุณ</p>
+            <form method="post" action="{% url 'start_lesson_exam' pk=lesson.pk %}" class="flex flex-col sm:flex-row gap-3">
+                {% csrf_token %}
+                <select name="num_questions" class="px-4 py-2.5 bg-white border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main">
+                    <option value="5">5 ข้อ</option>
+                    <option value="10" selected>10 ข้อ</option>
+                    <option value="15">15 ข้อ</option>
+                    <option value="20">20 ข้อ</option>
+                </select>
+                <button type="submit" class="flex-1 py-2.5 bg-bio-dark hover:bg-bio-main text-white font-bold rounded-2xl text-sm shadow transition">
+                    เริ่มทำข้อสอบ 🚀
+                </button>
+            </form>
+        </div>
+        {% endif %}
+
+        {% if question_count > 0 %}
         <div>
             <h2 class="text-lg font-bold text-bio-dark flex items-center gap-2 border-b pb-3 border-slate-100 mb-4">
                 📊 ประวัติการทำแบบฝึกหัดของฉัน

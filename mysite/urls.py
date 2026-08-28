@@ -17,12 +17,11 @@ urlpatterns = [
     path('lessons/', views.lessons_view, name='lessons'),
     path('lessons/<int:pk>/', views.lesson_detail_view, name='lesson_detail'),
 
-    # 📌 ระบบแบบฝึกหัด / ข้อสอบ / แดชบอร์ด
+    # 📌 ระบบแบบฝึกหัด / ข้อสอบ (แดชบอร์ดรวมอยู่ในหน้าโปรไฟล์)
     path('lessons/<int:pk>/exercise/', views.lesson_exercise_view, name='lesson_exercise'),
     path('lessons/<int:pk>/exercise/start/', views.start_practice_attempt, name='start_practice_attempt'),
     path('lessons/<int:pk>/exercise/pdf/', views.exercise_pdf_view, name='exercise_pdf'),
-    path('exam/', views.exam_start_view, name='exam_start'),
+    path('lessons/<int:pk>/exam/start/', views.start_lesson_exam, name='start_lesson_exam'),
     path('attempts/<int:attempt_pk>/', views.attempt_take_view, name='attempt_take'),
     path('attempts/<int:attempt_pk>/result/', views.attempt_result_view, name='attempt_result'),
-    path('dashboard/', views.dashboard_view, name='dashboard'),
 ]

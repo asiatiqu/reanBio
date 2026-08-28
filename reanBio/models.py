@@ -160,6 +160,34 @@ class Attempt(models.Model):
         return round(self.score / self.max_score * 100, 1)
 
 
+class Checkpoint(models.Model):
+    """แบบทดสอบสั้นๆ ที่แทรกอยู่ระหว่างเนื้อหาบทเรียน ไม่เก็บคะแนน แค่บอกถูก/ผิดทันทีเพื่อให้อ่านไปทำไป"""
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='checkpoints', verbose_name="บทเรียนที่เกี่ยวข้อง")
+    after_paragraph = models.PositiveIntegerField(default=1, verbose_name="แทรกหลังย่อหน้าที่ (นับจาก 1)")
+    order = models.PositiveIntegerField(default=1, verbose_name="ลำดับ (ถ้ามีหลายข้อในตำแหน่งเดียวกัน)")
+    text = models.TextField(verbose_name="คำถามสั้นๆ ระหว่างอ่าน")
+    explanation = models.TextField(blank=True, default="", verbose_name="คำอธิบายเพิ่มเติม")
+
+    class Meta:
+        ordering = ['lesson', 'after_paragraph', 'order']
+
+    def __str__(self):
+        return f"[{self.lesson}] หลังย่อหน้า {self.after_paragraph}: {self.text[:40]}"
+
+
+class CheckpointChoice(models.Model):
+    checkpoint = models.ForeignKey(Checkpoint, on_delete=models.CASCADE, related_name='choices', verbose_name="คำถามระหว่างอ่าน")
+    order = models.PositiveIntegerField(default=1)
+    text = models.CharField(max_length=300, verbose_name="ข้อความตัวเลือก")
+    is_correct = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['checkpoint', 'order']
+
+    def __str__(self):
+        return self.text[:60]
+
+
 class AttemptAnswer(models.Model):
     attempt = models.ForeignKey(Attempt, on_delete=models.CASCADE, related_name='answers', verbose_name="การทำแบบฝึกหัด/ข้อสอบ")
     question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='attempt_answers', verbose_name="คำถาม")

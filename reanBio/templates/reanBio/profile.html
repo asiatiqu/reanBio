@@ -47,79 +47,262 @@
     <div class="space-y-6">
         <div class="border-b border-slate-200">
             <div class="flex overflow-x-auto gap-4 md:gap-8 text-sm md:text-base font-bold text-slate-500">
-                <button class="pb-3 border-b-2 border-bio-main text-bio-dark whitespace-nowrap">
+                <button type="button" onclick="switchProfileTab('classrooms')" id="tab-btn-classrooms" class="profile-tab-btn pb-3 border-b-2 border-bio-main text-bio-dark whitespace-nowrap">
                     {% if request.user.is_teacher %}ห้องเรียนที่ฉันสอน{% else %}ห้องเรียนของฉัน{% endif %}
                 </button>
-                <button class="pb-3 hover:text-bio-dark transition whitespace-nowrap">
+                <button type="button" onclick="switchProfileTab('videos')" id="tab-btn-videos" class="profile-tab-btn pb-3 border-b-2 border-transparent hover:text-bio-dark transition whitespace-nowrap">
                     วิดีโอที่เรียน
                 </button>
-                <button class="pb-3 hover:text-bio-dark transition whitespace-nowrap">
+                <button type="button" onclick="switchProfileTab('recent')" id="tab-btn-recent" class="profile-tab-btn pb-3 border-b-2 border-transparent hover:text-bio-dark transition whitespace-nowrap">
                     เข้าชมล่าสุด
                 </button>
-                
-                <!-- 📌 เปลี่ยนเปลี่ยนเป็นแท็บ "แดชบอร์ด" -->
+
                 {% if request.user.is_teacher %}
-                <a href="{% url 'teacher_dashboard' %}" class="pb-3 hover:text-bio-dark transition whitespace-nowrap text-slate-500 hover:text-bio-dark">
+                <a href="{% url 'teacher_dashboard' %}" class="pb-3 border-b-2 border-transparent hover:text-bio-dark transition whitespace-nowrap text-slate-500">
                     แดชบอร์ด
                 </a>
                 {% else %}
-                <button class="pb-3 hover:text-bio-dark transition whitespace-nowrap">
+                <button type="button" onclick="switchProfileTab('dashboard')" id="tab-btn-dashboard" class="profile-tab-btn pb-3 border-b-2 border-transparent hover:text-bio-dark transition whitespace-nowrap">
                     แดชบอร์ด
                 </button>
                 {% endif %}
             </div>
         </div>
 
-        <!-- 📌 รายการห้องเรียน (แสดงตามบทบาทคุณครู / นักเรียน) -->
-        {% if classrooms %}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {% for room in classrooms %}
-            <div class="bg-bio-light/40 border border-bio-light rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:shadow-md transition">
-                <div class="space-y-2">
-                    <div class="flex justify-between items-start gap-2">
-                        <h3 class="font-bold text-lg text-bio-dark leading-snug">{{ room.name }}</h3>
-                        <span class="text-xs font-bold bg-bio-main text-white px-3 py-1 rounded-full shrink-0">
-                            {{ room.code }}
-                        </span>
+        <!-- 📌 แท็บ: ห้องเรียนของฉัน -->
+        <div id="tab-panel-classrooms" class="profile-tab-panel">
+            {% if classrooms %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {% for room in classrooms %}
+                <div class="bg-bio-light/40 border border-bio-light rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:shadow-md transition">
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-start gap-2">
+                            <h3 class="font-bold text-lg text-bio-dark leading-snug">{{ room.name }}</h3>
+                            <span class="text-xs font-bold bg-bio-main text-white px-3 py-1 rounded-full shrink-0">
+                                {{ room.code }}
+                            </span>
+                        </div>
+                        {% if request.user.is_teacher %}
+                        <p class="text-xs font-semibold text-slate-500">👥 นักเรียนทั้งหมด: {{ room.students.count }} คน</p>
+                        {% else %}
+                        <p class="text-xs font-semibold text-slate-500">👨‍🏫 สอนโดย: {{ room.teacher.first_name|default:room.teacher.username }}</p>
+                        {% endif %}
                     </div>
-                    {% if request.user.is_teacher %}
-                    <p class="text-xs font-semibold text-slate-500">👥 นักเรียนทั้งหมด: {{ room.students.count }} คน</p>
+
+                    <div>
+                        <a href="{% url 'classroom_detail' code=room.code %}"
+                            class="block w-full py-2.5 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-center text-xs shadow transition">
+                            เข้าสู่ห้องเรียน 🚪
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <!-- 📌 กรณีคุณครูยังไม่ได้สร้างห้องเรียน / นักเรียนยังไม่ได้ เข้าร่วม -->
+            <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-3">
+                <span class="text-5xl">🌿</span>
+                {% if request.user.is_teacher %}
+                <p class="font-semibold text-base text-slate-700">คุณครูยังไม่ได้สร้างห้องเรียนใดๆ</p>
+                <p class="text-xs text-slate-400">สร้างห้องเรียนในแดชบอร์ดและนำรหัส 6 หลักไปแจกให้นักเรียนเข้าร่วม</p>
+                <a href="{% url 'teacher_dashboard' %}"
+                    class="mt-2 px-5 py-2.5 bg-bio-main hover:bg-bio-dark text-white font-bold text-sm rounded-2xl transition flex items-center gap-2 shadow-sm">
+                    <span>➕</span> ไปหน้าแดชบอร์ดเพื่อสร้างห้องเรียน
+                </a>
+                {% else %}
+                <p class="font-semibold text-base text-slate-700">ยังไม่ได้เข้าร่วมห้องเรียนใดๆ</p>
+                <p class="text-xs text-slate-400">ค้นหาห้องเรียนด้วยรหัสหรือชื่อของคุณครูเพื่อเริ่มเรียน</p>
+                <a href="{% url 'my_classrooms' %}"
+                    class="mt-2 px-5 py-2.5 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold text-sm rounded-2xl border border-bio-light transition flex items-center gap-2">
+                    <span>➕</span> เข้าร่วมห้องเรียนของคุณครู
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 📌 แท็บ: วิดีโอที่เรียน (เตรียมพัฒนาต่อ) -->
+        <div id="tab-panel-videos" class="profile-tab-panel hidden">
+            <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-3">
+                <span class="text-5xl">🎬</span>
+                <p class="font-semibold text-base text-slate-700">เตรียมพบกับวิดีโอที่เรียนย้อนหลัง</p>
+            </div>
+        </div>
+
+        <!-- 📌 แท็บ: เข้าชมล่าสุด (เตรียมพัฒนาต่อ) -->
+        <div id="tab-panel-recent" class="profile-tab-panel hidden">
+            <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-3">
+                <span class="text-5xl">🕒</span>
+                <p class="font-semibold text-base text-slate-700">เตรียมพบกับประวัติการเข้าชมล่าสุด</p>
+            </div>
+        </div>
+
+        {% if not request.user.is_teacher %}
+        <!-- 📌 แท็บ: แดชบอร์ดผลการเรียน (คะแนนแบบฝึกหัด/ข้อสอบ) -->
+        <div id="tab-panel-dashboard" class="profile-tab-panel hidden space-y-6">
+            {% if total_attempts == 0 %}
+            <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-3">
+                <span class="text-5xl">📭</span>
+                <p class="font-semibold text-base text-slate-700">ยังไม่มีประวัติการทำแบบฝึกหัดหรือข้อสอบ</p>
+                <p class="text-xs text-slate-400">ลองไปทำแบบฝึกหัดหรือข้อสอบในบทเรียนดูก่อนนะ</p>
+                <a href="{% url 'lessons' %}" class="mt-2 px-5 py-2.5 bg-bio-main hover:bg-bio-dark text-white font-bold text-sm rounded-2xl transition flex items-center gap-2 shadow-sm">
+                    <span>📚</span> ไปที่บทเรียน
+                </a>
+            </div>
+            {% else %}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-bio-light/30 border border-bio-light rounded-3xl p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-bold text-bio-dark">📝 แนวโน้มแบบฝึกหัด</h3>
+                        {% if practice_trend != None %}
+                        <span class="px-3 py-1 rounded-full text-xs font-bold {% if practice_trend > 0 %}bg-green-100 text-green-700{% elif practice_trend < 0 %}bg-red-100 text-red-600{% else %}bg-slate-100 text-slate-500{% endif %}">
+                            {% if practice_trend > 0 %}▲ ดีขึ้น {{ practice_trend }}%{% elif practice_trend < 0 %}▼ แย่ลง {{ practice_trend }}%{% else %}▬ คงที่{% endif %}
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if practice_series %}
+                    <canvas id="practiceChart" height="180"></canvas>
                     {% else %}
-                    <p class="text-xs font-semibold text-slate-500">👨‍🏫 สอนโดย: {{ room.teacher.first_name|default:room.teacher.username }}</p>
+                    <p class="text-sm text-slate-400 text-center py-10">ยังไม่มีประวัติแบบฝึกหัด</p>
                     {% endif %}
                 </div>
 
-                <div>
-                    <a href="{% url 'classroom_detail' code=room.code %}" 
-                        class="block w-full py-2.5 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-center text-xs shadow transition">
-                        เข้าสู่ห้องเรียน 🚪
-                    </a>
+                <div class="bg-bio-light/30 border border-bio-light rounded-3xl p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-bold text-bio-dark">🎯 แนวโน้มข้อสอบ</h3>
+                        {% if exam_trend != None %}
+                        <span class="px-3 py-1 rounded-full text-xs font-bold {% if exam_trend > 0 %}bg-green-100 text-green-700{% elif exam_trend < 0 %}bg-red-100 text-red-600{% else %}bg-slate-100 text-slate-500{% endif %}">
+                            {% if exam_trend > 0 %}▲ ดีขึ้น {{ exam_trend }}%{% elif exam_trend < 0 %}▼ แย่ลง {{ exam_trend }}%{% else %}▬ คงที่{% endif %}
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if exam_series %}
+                    <canvas id="examChart" height="180"></canvas>
+                    {% else %}
+                    <p class="text-sm text-slate-400 text-center py-10">ยังไม่มีประวัติข้อสอบ</p>
+                    {% endif %}
                 </div>
             </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <!-- 📌 กรณีคุณครูยังไม่ได้สร้างห้องเรียน / นักเรียนยังไม่ได้ เข้าร่วม -->
-        <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-3">
-            <span class="text-5xl">🌿</span>
-            {% if request.user.is_teacher %}
-            <p class="font-semibold text-base text-slate-700">คุณครูยังไม่ได้สร้างห้องเรียนใดๆ</p>
-            <p class="text-xs text-slate-400">สร้างห้องเรียนในแดชบอร์ดและนำรหัส 6 หลักไปแจกให้นักเรียนเข้าร่วม</p>
-            <a href="{% url 'teacher_dashboard' %}"
-                class="mt-2 px-5 py-2.5 bg-bio-main hover:bg-bio-dark text-white font-bold text-sm rounded-2xl transition flex items-center gap-2 shadow-sm">
-                <span>➕</span> ไปหน้าแดชบอร์ดเพื่อสร้างห้องเรียน
-            </a>
-            {% else %}
-            <p class="font-semibold text-base text-slate-700">ยังไม่ได้เข้าร่วมห้องเรียนใดๆ</p>
-            <p class="text-xs text-slate-400">ค้นหาห้องเรียนด้วยรหัสหรือชื่อของคุณครูเพื่อเริ่มเรียน</p>
-            <a href="{% url 'my_classrooms' %}"
-                class="mt-2 px-5 py-2.5 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold text-sm rounded-2xl border border-bio-light transition flex items-center gap-2">
-                <span>➕</span> เข้าร่วมห้องเรียนของคุณครู
-            </a>
+
+            {% if practice_attempts %}
+            <div>
+                <h3 class="font-bold text-bio-dark mb-3">📝 ประวัติแบบฝึกหัดล่าสุด</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead>
+                            <tr class="text-slate-400 text-xs uppercase">
+                                <th class="py-2 pr-4">บทเรียน</th>
+                                <th class="py-2 pr-4">วันที่ทำ</th>
+                                <th class="py-2 pr-4">คะแนน</th>
+                                <th class="py-2 pr-4"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in practice_attempts %}
+                            <tr class="border-t border-slate-100">
+                                <td class="py-2.5 pr-4 font-semibold text-slate-700">{{ a.lesson.title|default:"-" }}</td>
+                                <td class="py-2.5 pr-4 text-slate-500">{{ a.submitted_at|date:"d/m/Y H:i" }}</td>
+                                <td class="py-2.5 pr-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold {% if a.percent >= 80 %}bg-green-100 text-green-700{% elif a.percent >= 50 %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-600{% endif %}">{{ a.percent }}%</span>
+                                </td>
+                                <td class="py-2.5 pr-4"><a href="{% url 'attempt_result' attempt_pk=a.pk %}" class="text-bio-main font-semibold hover:underline">ดูผล →</a></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if exam_attempts %}
+            <div>
+                <h3 class="font-bold text-bio-dark mb-3">🎯 ประวัติข้อสอบล่าสุด</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead>
+                            <tr class="text-slate-400 text-xs uppercase">
+                                <th class="py-2 pr-4">ขอบเขต</th>
+                                <th class="py-2 pr-4">วันที่ทำ</th>
+                                <th class="py-2 pr-4">คะแนน</th>
+                                <th class="py-2 pr-4"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in exam_attempts %}
+                            <tr class="border-t border-slate-100">
+                                <td class="py-2.5 pr-4 font-semibold text-slate-700">{% if a.chapter %}บทที่ {{ a.chapter }}{% else %}ข้อสอบรวม{% endif %}</td>
+                                <td class="py-2.5 pr-4 text-slate-500">{{ a.submitted_at|date:"d/m/Y H:i" }}</td>
+                                <td class="py-2.5 pr-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold {% if a.percent >= 80 %}bg-green-100 text-green-700{% elif a.percent >= 50 %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-600{% endif %}">{{ a.percent }}%</span>
+                                </td>
+                                <td class="py-2.5 pr-4"><a href="{% url 'attempt_result' attempt_pk=a.pk %}" class="text-bio-main font-semibold hover:underline">ดูผล →</a></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
             {% endif %}
         </div>
         {% endif %}
     </div>
 
 </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script>
+    function switchProfileTab(tab) {
+        document.querySelectorAll('.profile-tab-panel').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.profile-tab-btn').forEach(el => {
+            el.classList.remove('border-bio-main', 'text-bio-dark');
+            el.classList.add('border-transparent');
+        });
+        const panel = document.getElementById('tab-panel-' + tab);
+        const btn = document.getElementById('tab-btn-' + tab);
+        if (panel) panel.classList.remove('hidden');
+        if (btn) {
+            btn.classList.add('border-bio-main', 'text-bio-dark');
+            btn.classList.remove('border-transparent');
+        }
+        if (tab === 'dashboard' && window.reanBioChartsRendered !== true) {
+            renderReanBioCharts();
+            window.reanBioChartsRendered = true;
+        }
+    }
+
+    function renderReanBioCharts() {
+        const practiceData = {{ practice_series|default:"[]"|safe }};
+        const examData = {{ exam_series|default:"[]"|safe }};
+
+        function renderChart(canvasId, data, color) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.date),
+                    datasets: [{
+                        label: 'คะแนน (%)',
+                        data: data.map(d => d.percent),
+                        borderColor: color,
+                        backgroundColor: color + '33',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: { y: { min: 0, max: 100 } },
+                    plugins: { tooltip: { callbacks: { afterLabel: (ctx) => data[ctx.dataIndex].label } } }
+                }
+            });
+        }
+
+        renderChart('practiceChart', practiceData, '#329632');
+        renderChart('examChart', examData, '#287a28');
+    }
+</script>
 {% endblock %}

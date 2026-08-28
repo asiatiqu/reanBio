@@ -14,7 +14,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.html import escape
 
-from .models import UserProfile, Classroom, Lesson, Question, Choice, Attempt, AttemptAnswer
+from .models import UserProfile, Classroom, Lesson, Question, Choice, Attempt, AttemptAnswer, Checkpoint
 from .forms import UserSignUpForm
 
 
@@ -27,11 +27,45 @@ def _highlight(text, query):
     return pattern.sub(lambda m: f"<mark class='bg-yellow-200 rounded px-0.5'>{m.group(0)}</mark>", escaped_text)
 
 
-def _render_content_html(text, query):
-    """แปลงเนื้อหาบทเรียนเป็น HTML: escape ป้องกัน XSS, เน้นคำค้นหา, และขึ้นย่อหน้าใหม่ตามบรรทัดว่าง"""
+def _render_checkpoint_html(checkpoint):
+    """สร้าง HTML การ์ดคำถามสั้นๆ ระหว่างเนื้อหา ตรวจถูก/ผิดด้วย JS ฝั่งเบราว์เซอร์ทันที ไม่เก็บคะแนนลงฐานข้อมูล"""
+    choices_html = "".join(
+        f'''<label class="flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-white cursor-pointer transition">
+                <input type="radio" name="cp{checkpoint.pk}" value="{c.pk}" data-correct="{"1" if c.is_correct else "0"}" class="accent-bio-main w-4 h-4">
+                <span class="text-sm text-slate-700">{escape(c.text)}</span>
+            </label>'''
+        for c in checkpoint.choices.all()
+    )
+    explanation_html = f'<p class="text-xs text-slate-500 mt-2">{escape(checkpoint.explanation)}</p>' if checkpoint.explanation else ""
+    return f'''
+    <div class="checkpoint-quiz not-prose my-4 p-5 bg-bio-light/50 border-2 border-dashed border-bio-main/30 rounded-2xl" data-cp-id="{checkpoint.pk}">
+        <p class="font-bold text-bio-dark text-sm mb-3">🧠 ลองตรวจสอบความเข้าใจ: {escape(checkpoint.text)}</p>
+        <div class="space-y-1.5">{choices_html}</div>
+        <button type="button" onclick="checkCheckpoint({checkpoint.pk})"
+            class="mt-3 px-5 py-2 bg-bio-main hover:bg-bio-dark text-white text-xs font-bold rounded-full transition">
+            ตรวจคำตอบ
+        </button>
+        <div id="cp-result-{checkpoint.pk}" class="mt-2 text-sm font-bold hidden"></div>
+        <div id="cp-explain-{checkpoint.pk}" class="hidden">{explanation_html}</div>
+    </div>'''
+
+
+def _render_content_html(text, query, checkpoints=None):
+    """แปลงเนื้อหาบทเรียนเป็น HTML: escape ป้องกัน XSS, เน้นคำค้นหา, ขึ้นย่อหน้าใหม่ตามบรรทัดว่าง
+    และแทรกคำถามสั้นๆ (checkpoint) ระหว่างย่อหน้าตามตำแหน่งที่กำหนดไว้"""
     highlighted = _highlight(text or "", query)
     paragraphs = [p.strip().replace("\n", "<br>") for p in highlighted.split("\n\n") if p.strip()]
-    return "".join(f"<p>{p}</p>" for p in paragraphs)
+
+    checkpoints_by_para = {}
+    for cp in (checkpoints or []):
+        checkpoints_by_para.setdefault(cp.after_paragraph, []).append(cp)
+
+    html_parts = []
+    for idx, para in enumerate(paragraphs, start=1):
+        html_parts.append(f"<p>{para}</p>")
+        for cp in checkpoints_by_para.get(idx, []):
+            html_parts.append(_render_checkpoint_html(cp))
+    return "".join(html_parts)
 
 
 def _build_content_snippet(content, query, radius=70):
@@ -215,15 +249,21 @@ def profile(request):
         user_profile = None
 
     # แยกการดึงข้อมูลห้องเรียนตามบทบาทผู้ใช้
-    if getattr(request.user, 'is_teacher', False):
+    is_teacher = getattr(request.user, 'is_teacher', False)
+    if is_teacher:
         classrooms = Classroom.objects.filter(teacher=request.user).order_by('-created_at')
     else:
         classrooms = request.user.joined_classrooms.all().order_by('-created_at')
 
-    return render(request, 'reanBio/profile.html', {
+    context = {
         'profile': user_profile,
-        'classrooms': classrooms
-    })
+        'classrooms': classrooms,
+    }
+    # 📌 แท็บ "แดชบอร์ด" ในหน้าโปรไฟล์: สรุปคะแนนแบบฝึกหัด/ข้อสอบ (เฉพาะนักเรียน คุณครูมีแดชบอร์ดห้องเรียนแยกต่างหาก)
+    if not is_teacher:
+        context.update(_dashboard_context(request.user))
+
+    return render(request, 'reanBio/profile.html', context)
 
 @login_required
 def my_classroom_view(request):
@@ -237,7 +277,8 @@ def my_classroom_view(request):
 def lesson_detail_view(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
     search_query = request.GET.get('q', '').strip()
-    content_html = _render_content_html(lesson.content, search_query)
+    checkpoints = list(lesson.checkpoints.prefetch_related('choices').all())
+    content_html = _render_content_html(lesson.content, search_query, checkpoints)
 
     return render(request, 'reanBio/lesson_detail.html', {
         'lesson': lesson,
@@ -264,17 +305,20 @@ def _grade_text_answer(question, raw_answer):
 
 @login_required
 def lesson_exercise_view(request, pk):
-    """หน้าภาพรวมแบบฝึกหัดของบทเรียนหนึ่งๆ พร้อมประวัติการทำของผู้ใช้"""
+    """หน้าภาพรวมแบบฝึกหัดของบทเรียนหนึ่งๆ พร้อมประวัติการทำของผู้ใช้ และปุ่มเริ่มทำข้อสอบของทั้งบท"""
     lesson = get_object_or_404(Lesson, pk=pk)
     questions = list(lesson.questions.all())
     history = Attempt.objects.filter(
         user=request.user, lesson=lesson, mode='practice', submitted_at__isnull=False
     ).order_by('-submitted_at')
 
+    exam_pool_count = Question.objects.filter(lesson__grade=lesson.grade, lesson__chapter=lesson.chapter).count()
+
     return render(request, 'reanBio/lesson_exercise.html', {
         'lesson': lesson,
         'question_count': len(questions),
         'history': history,
+        'exam_pool_count': exam_pool_count,
     })
 
 
@@ -296,51 +340,43 @@ def start_practice_attempt(request, pk):
     return redirect('attempt_take', attempt_pk=attempt.pk)
 
 
-@login_required
-def exam_start_view(request):
-    if request.method == 'POST':
-        grade = request.POST.get('grade', 'm4')
-        chapter = request.POST.get('chapter', '').strip()
-        try:
-            num_questions = int(request.POST.get('num_questions', 10))
-        except ValueError:
-            num_questions = 10
+def _create_exam_attempt(user, grade, chapter, num_questions):
+    """สุ่มคำถามจากคลังข้อสอบตามระดับชั้น/บทที่กำหนด แล้วสร้าง Attempt แบบข้อสอบ คืนค่า Attempt หรือ None ถ้าไม่มีคำถามเลย"""
+    pool = Question.objects.filter(lesson__grade=grade)
+    if chapter:
+        pool = pool.filter(lesson__chapter=chapter)
+    pool = list(pool)
+    if not pool:
+        return None
 
-        pool = Question.objects.filter(lesson__grade=grade)
-        if chapter:
-            pool = pool.filter(lesson__chapter=chapter)
-        pool = list(pool)
+    num_questions = max(1, min(num_questions, len(pool)))
+    selected = random.sample(pool, num_questions)
 
-        if not pool:
-            messages.error(request, "ไม่พบคำถามสำหรับตัวเลือกที่เลือก กรุณาลองใหม่")
-            return redirect('exam_start')
-
-        num_questions = max(1, min(num_questions, len(pool)))
-        selected = random.sample(pool, num_questions)
-
-        attempt = Attempt.objects.create(
-            user=request.user, mode='exam', grade=grade,
-            chapter=int(chapter) if chapter else None,
-            max_score=sum(q.points for q in selected),
-        )
-        for i, q in enumerate(selected, start=1):
-            AttemptAnswer.objects.create(attempt=attempt, question=q, order=i)
-
-        return redirect('attempt_take', attempt_pk=attempt.pk)
-
-    chapters = list(
-        Lesson.objects.filter(grade='m4', chapter__isnull=False)
-        .exclude(chapter_title="")
-        .values_list('chapter', 'chapter_title')
-        .distinct()
-        .order_by('chapter')
+    attempt = Attempt.objects.create(
+        user=user, mode='exam', grade=grade,
+        chapter=int(chapter) if chapter else None,
+        max_score=sum(q.points for q in selected),
     )
-    total_questions = Question.objects.filter(lesson__grade='m4').count()
+    for i, q in enumerate(selected, start=1):
+        AttemptAnswer.objects.create(attempt=attempt, question=q, order=i)
+    return attempt
 
-    return render(request, 'reanBio/exam_start.html', {
-        'chapters': chapters,
-        'total_questions': total_questions,
-    })
+
+@login_required
+def start_lesson_exam(request, pk):
+    """เริ่มทำข้อสอบแบบสุ่มจากคำถามทั้งบท (chapter) ที่บทเรียนนี้สังกัดอยู่ ริเริ่มจากหน้าบทเรียนโดยตรง"""
+    lesson = get_object_or_404(Lesson, pk=pk)
+    try:
+        num_questions = int(request.POST.get('num_questions', 10))
+    except ValueError:
+        num_questions = 10
+
+    attempt = _create_exam_attempt(request.user, lesson.grade, lesson.chapter, num_questions)
+    if attempt is None:
+        messages.error(request, "บทนี้ยังไม่มีคำถามในคลังข้อสอบ")
+        return redirect('lesson_exercise', pk=lesson.pk)
+
+    return redirect('attempt_take', attempt_pk=attempt.pk)
 
 
 @login_required
@@ -391,13 +427,27 @@ def attempt_result_view(request, attempt_pk):
         .prefetch_related('question__choices')
         .order_by('order')
     )
-    return render(request, 'reanBio/attempt_result.html', {'attempt': attempt, 'answers': answers})
+
+    # สำหรับผลข้อสอบ (exam mode): หาบทเรียนตัวแทนของบทนั้นๆ เพื่อใช้เป็นทางลัดกลับไป "ทำข้อสอบอีกครั้ง"
+    retake_lesson = None
+    if attempt.mode == 'exam':
+        lessons_qs = Lesson.objects.filter(grade=attempt.grade or 'm4')
+        if attempt.chapter:
+            lessons_qs = lessons_qs.filter(chapter=attempt.chapter)
+        retake_lesson = lessons_qs.first()
+
+    return render(request, 'reanBio/attempt_result.html', {
+        'attempt': attempt,
+        'answers': answers,
+        'retake_lesson': retake_lesson,
+        'retake_num_questions': answers.count(),
+    })
 
 
-@login_required
-def dashboard_view(request):
+def _dashboard_context(user):
+    """สรุปประวัติคะแนนแบบฝึกหัด/ข้อสอบของผู้ใช้ สำหรับแสดงในแท็บ 'แดชบอร์ด' ของหน้าโปรไฟล์"""
     attempts = list(
-        Attempt.objects.filter(user=request.user, submitted_at__isnull=False)
+        Attempt.objects.filter(user=user, submitted_at__isnull=False)
         .select_related('lesson')
         .order_by('submitted_at')
     )
@@ -431,7 +481,7 @@ def dashboard_view(request):
         avg2 = sum(a.percent for a in second_half) / len(second_half)
         return round(avg2 - avg1, 1)
 
-    return render(request, 'reanBio/dashboard.html', {
+    return {
         'practice_attempts': list(reversed(practice_attempts)),
         'exam_attempts': list(reversed(exam_attempts)),
         'practice_series': series(practice_attempts),
@@ -439,7 +489,7 @@ def dashboard_view(request):
         'practice_trend': trend(practice_attempts),
         'exam_trend': trend(exam_attempts),
         'total_attempts': len(attempts),
-    })
+    }
 
 
 @login_required

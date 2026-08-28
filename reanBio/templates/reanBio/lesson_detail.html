@@ -98,4 +98,28 @@
     </div>
 
 </div>
+
+<script>
+    // 🧠 ตรวจคำตอบ checkpoint ระหว่างเนื้อหาแบบทันที ฝั่งเบราว์เซอร์ล้วนๆ ไม่เก็บคะแนน แค่บอกถูก/ผิด
+    function checkCheckpoint(cpId) {
+        const card = document.querySelector(`[data-cp-id="${cpId}"]`);
+        if (!card) return;
+        const selected = card.querySelector(`input[name="cp${cpId}"]:checked`);
+        const resultEl = document.getElementById(`cp-result-${cpId}`);
+        const explainEl = document.getElementById(`cp-explain-${cpId}`);
+
+        if (!selected) {
+            resultEl.textContent = '⚠️ กรุณาเลือกคำตอบก่อนนะ';
+            resultEl.className = 'mt-2 text-sm font-bold text-amber-600';
+            resultEl.classList.remove('hidden');
+            return;
+        }
+
+        const isCorrect = selected.dataset.correct === '1';
+        resultEl.textContent = isCorrect ? '✅ ถูกต้อง!' : '❌ ยังไม่ถูก ลองอ่านทบทวนอีกครั้งนะ';
+        resultEl.className = `mt-2 text-sm font-bold ${isCorrect ? 'text-green-600' : 'text-red-600'}`;
+        resultEl.classList.remove('hidden');
+        if (explainEl) explainEl.classList.remove('hidden');
+    }
+</script>
 {% endblock %}
