@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}reanBio{% endblock %}</title>
+  {% load static %}
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mali:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'bio-bg': '#f4f8f3',
+            'bio-dark': '#287a28',
+            'bio-main': '#329632',
+            'bio-light': '#eaf3e9',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Mali', cursive, sans-serif;
+    }
+
+    body {
+      display: flex;
+      min-height: 100vh;
+      background-color: #f4f8f3;
+      color: #2d4030;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* 📌 1. Antigravity Dot-Grid Background */
+    .bg-antigravity-grid {
+      position: absolute;
+      top: -80px;
+      left: -80px;
+      right: -80px;
+      bottom: -80px;
+      background-image: radial-gradient(rgba(50, 150, 50, 0.22) 1.5px, transparent 1.5px);
+      background-size: 28px 28px;
+      z-index: 0;
+      pointer-events: none;
+      transition: transform 0.15s ease-out;
+      will-change: transform;
+    }
+
+    /* 📌 2. Glowing Ambient Orbs */
+    .glow-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.45;
+      pointer-events: none;
+      z-index: 0;
+      transition: transform 0.2s ease-out;
+      will-change: transform;
+    }
+
+    .glow-orb-1 {
+      width: 450px;
+      height: 450px;
+      background: #81c784;
+      top: -100px;
+      left: 15%;
+    }
+
+    .glow-orb-2 {
+      width: 550px;
+      height: 550px;
+      background: #a5d6a7;
+      bottom: -150px;
+      right: 10%;
+    }
+
+    .glow-orb-3 {
+      width: 380px;
+      height: 380px;
+      background: #66bb6a;
+      top: 35%;
+      left: 45%;
+    }
+
+    /* 🦠 3. Floating Emojis (จัดวางตำแหน่ง 25 ตัวกระจายทั่วจอ) */
+    .bg-animation {
+      position: absolute;
+      inset: -50px;
+      overflow: hidden;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .emoji {
+      position: absolute;
+      opacity: 0.18;
+      transition: transform 0.15s ease-out;
+      will-change: transform;
+      user-select: none;
+    }
+
+    /* แถวที่ 1 (ด้านบน) */
+    .emoji:nth-child(1) {
+      top: 6%;
+      left: 8%;
+      font-size: 3.5rem;
+    }
+
+    .emoji:nth-child(2) {
+      top: 12%;
+      left: 28%;
+      font-size: 2.2rem;
+    }
+
+    .emoji:nth-child(3) {
+      top: 5%;
+      left: 52%;
+      font-size: 3.0rem;
+    }
+
+    .emoji:nth-child(4) {
+      top: 10%;
+      left: 75%;
+      font-size: 3.8rem;
+    }
+
+    .emoji:nth-child(5) {
+      top: 8%;
+      left: 92%;
+      font-size: 2.5rem;
+    }
+
+    /* แถวที่ 2 (บนค่อนกลาง) */
+    .emoji:nth-child(6) {
+      top: 28%;
+      left: 5%;
+      font-size: 2.8rem;
+    }
+
+    .emoji:nth-child(7) {
+      top: 25%;
+      left: 22%;
+      font-size: 3.2rem;
+    }
+
+    .emoji:nth-child(8) {
+      top: 32%;
+      left: 42%;
+      font-size: 2.4rem;
+    }
+
+    .emoji:nth-child(9) {
+      top: 22%;
+      left: 65%;
+      font-size: 3.6rem;
+    }
+
+    .emoji:nth-child(10) {
+      top: 30%;
+      left: 85%;
+      font-size: 2.7rem;
+    }
+
+    /* แถวที่ 3 (ตรงกลาง) */
+    .emoji:nth-child(11) {
+      top: 48%;
+      left: 12%;
+      font-size: 3.4rem;
+    }
+
+    .emoji:nth-child(12) {
+      top: 52%;
+      left: 30%;
+      font-size: 2.6rem;
+    }
+
+    .emoji:nth-child(13) {
+      top: 45%;
+      left: 50%;
+      font-size: 3.0rem;
+    }
+
+    .emoji:nth-child(14) {
+      top: 55%;
+      left: 72%;
+      font-size: 2.2rem;
+    }
+
+    .emoji:nth-child(15) {
+      top: 48%;
+      left: 90%;
+      font-size: 3.5rem;
+    }
+
+    /* แถวที่ 4 (กลางค่อนล่าง) */
+    .emoji:nth-child(16) {
+      top: 70%;
+      left: 6%;
+      font-size: 2.5rem;
+    }
+
+    .emoji:nth-child(17) {
+      top: 68%;
+      left: 24%;
+      font-size: 3.8rem;
+    }
+
+    .emoji:nth-child(18) {
+      top: 75%;
+      left: 45%;
+      font-size: 2.3rem;
+    }
+
+    .emoji:nth-child(19) {
+      top: 72%;
+      left: 68%;
+      font-size: 3.2rem;
+    }
+
+    .emoji:nth-child(20) {
+      top: 65%;
+      left: 88%;
+      font-size: 2.8rem;
+    }
+
+    /* แถวที่ 5 (ด้านล่าง) */
+    .emoji:nth-child(21) {
+      top: 88%;
+      left: 15%;
+      font-size: 3.0rem;
+    }
+
+    .emoji:nth-child(22) {
+      top: 85%;
+      left: 35%;
+      font-size: 2.6rem;
+    }
+
+    .emoji:nth-child(23) {
+      top: 90%;
+      left: 58%;
+      font-size: 3.5rem;
+    }
+
+    .emoji:nth-child(24) {
+      top: 86%;
+      left: 78%;
+      font-size: 2.4rem;
+    }
+
+    .emoji:nth-child(25) {
+      top: 92%;
+      left: 94%;
+      font-size: 3.2rem;
+    }
+
+    /* 📌 Sidebar สีขาวมินิมอล */
+    .sidebar {
+      width: 260px;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(16px);
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      z-index: 50;
+      border-right: 1px solid rgba(226, 238, 224, 0.8);
+      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.02);
+      transition: transform 0.3s ease-in-out;
+    }
+
+    .sidebar .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 25px;
+      width: 100%;
+      padding: 10px 5px;
+    }
+
+    .sidebar .logo img {
+      width: 100%;
+      max-width: 210px;
+      height: auto;
+      object-fit: contain;
+      transition: transform 0.2s ease;
+    }
+
+    .sidebar .logo img:hover {
+      transform: scale(1.03);
+    }
+
+    .nav-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex-grow: 1;
+    }
+
+    .nav-menu a,
+    .btn-back-home {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 18px;
+      border-radius: 16px;
+      text-decoration: none;
+      color: #4a634e;
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: 0.2s ease;
+    }
+
+    .nav-menu a:hover,
+    .btn-back-home:hover {
+      background-color: #eaf3e9;
+      color: #329632;
+      transform: translateX(4px);
+    }
+
+    .nav-menu a.active {
+      background-color: #329632;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(50, 150, 50, 0.25);
+    }
+
+    /* 📌 Main Layout Structure */
+    .main-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      width: calc(100% - 260px);
+      z-index: 1;
+    }
+
+    .full-width-container {
+      width: 100% !important;
+    }
+
+    /* 📌 Topbar สีเขียว */
+    .top-navbar {
+      width: 100%;
+      background: #329632;
+      padding: 12px 40px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+      position: relative;
+      z-index: 20;
+    }
+
+    /* 📌 Profile Button Widget */
+    .user-pill-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      color: white;
+      padding: 8px 20px;
+      border-radius: 30px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .user-pill-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .dropdown-card {
+      position: absolute;
+      top: 55px;
+      right: 40px;
+      width: 260px;
+      background: white;
+      border-radius: 24px;
+      padding: 12px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+      border: 1px solid #eef5ed;
+      display: flex;
+      flex-direction: column;
+      z-index: 60;
+    }
+
+    .profile-info-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #f1f8f1;
+      padding: 12px 16px;
+      border-radius: 18px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .profile-info-box:hover {
+      background: #eaf3e9;
+    }
+
+    .avatar-circle {
+      width: 44px;
+      height: 44px;
+      background: #329632;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+
+    /* 📌 Content Wrapper */
+    .content-wrapper {
+      flex: 1;
+      padding: 40px 60px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+    }
+
+    .hero-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 1400px;
+      gap: 50px;
+      margin-bottom: 40px;
+    }
+
+    .hero-text {
+      flex: 1.2;
+      text-align: left;
+    }
+
+    .badge {
+      background: #ffffff;
+      color: #329632;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: inline-block;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    }
+
+    .hero-text h1 {
+      font-size: 3.2rem;
+      color: #329632;
+      margin-bottom: 20px;
+      line-height: 1.25;
+      font-weight: 700;
+    }
+
+    .hero-text p {
+      color: #555;
+      margin-bottom: 32px;
+      line-height: 1.7;
+      font-size: 1.1rem;
+      max-width: 95%;
+    }
+
+    .btn-primary {
+      background: #329632;
+      color: white;
+      padding: 14px 36px;
+      border-radius: 30px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1.1rem;
+      display: inline-block;
+      transition: 0.3s;
+      box-shadow: 0 6px 20px rgba(50, 150, 50, 0.3);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-3px);
+      background: #287a28;
+    }
+
+    .hero-image {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+    }
+
+    .hero-image img {
+      width: 100%;
+      max-width: 480px;
+      border-radius: 36px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+      border: 14px solid #ffffff;
+      aspect-ratio: 1/1;
+      object-fit: cover;
+    }
+
+    .features-grid {
+      display: flex;
+      gap: 24px;
+      width: 100%;
+      max-width: 1400px;
+    }
+
+    .feature-card {
+      background: white;
+      flex: 1;
+      padding: 28px 20px;
+      border-radius: 24px;
+      text-align: center;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.02);
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+      cursor: pointer;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-12px) scale(1.03);
+      box-shadow: 0 15px 30px rgba(50, 150, 50, 0.15);
+    }
+
+    .feature-card h3 {
+      font-size: 1.15rem;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 700;
+    }
+
+    .feature-card p {
+      font-size: 0.9rem;
+      color: #777;
+      margin: 0;
+    }
+
+    /* 📱 Mobile Responsiveness Overrides */
+    @media (max-width: 768px) {
+      body {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 260px;
+        transform: translateX(-100%);
+      }
+
+      .sidebar.active {
+        transform: translateX(0);
+      }
+
+      .main-container {
+        width: 100% !important;
+      }
+
+      .top-navbar {
+        padding: 12px 16px !important;
+        justify-content: space-between !important;
+      }
+
+      .content-wrapper {
+        padding: 20px 16px !important;
+      }
+
+      .hero-container {
+        flex-direction: column-reverse;
+        text-align: center;
+        gap: 24px !important;
+      }
+
+      .hero-text {
+        text-align: center !important;
+      }
+
+      .hero-text h1 {
+        font-size: 2.2rem !important;
+      }
+
+      .dropdown-card {
+        right: 16px !important;
+      }
+    }
+
+    /* 📱 Mobile Overlay Backdrop */
+    #mobile-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(4px);
+      z-index: 40;
+    }
+
+    #mobile-backdrop.active {
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="bg-antigravity-grid"></div>
+
+  <div class="glow-orb glow-orb-1"></div>
+  <div class="glow-orb glow-orb-2"></div>
+  <div class="glow-orb glow-orb-3"></div>
+
+  <div class="bg-animation">
+    <div class="emoji">🧬</div>
+    <div class="emoji">🦠</div>
+    <div class="emoji">🌿</div>
+    <div class="emoji">🔬</div>
+    <div class="emoji">🧫</div>
+
+    <div class="emoji">🌱</div>
+    <div class="emoji">🍄</div>
+    <div class="emoji">🦋</div>
+    <div class="emoji">🐛</div>
+    <div class="emoji">🩸</div>
+
+    <div class="emoji">🧠</div>
+    <div class="emoji">🫀</div>
+    <div class="emoji">🧪</div>
+    <div class="emoji">🍃</div>
+    <div class="emoji">🦴</div>
+
+    <div class="emoji">🫁</div>
+    <div class="emoji">🐝</div>
+    <div class="emoji">🌾</div>
+    <div class="emoji">🌵</div>
+    <div class="emoji">🐞</div>
+
+    <div class="emoji">🧬</div>
+    <div class="emoji">🔬</div>
+    <div class="emoji">🌱</div>
+    <div class="emoji">🧫</div>
+    <div class="emoji">🌿</div>
+  </div>
+
+  <!-- 📱 ฉากหลังสีดำเมื่อเปิดเมนูในมือถือ -->
+  <div id="mobile-backdrop" onclick="toggleMobileSidebar()"></div>
+
+  {% if request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'signup' %}
+  <aside class="sidebar" id="sidebar">
+    <a href="{% url 'home' %}" class="logo">
+      <img src="{% static 'reanBio/images/reanbio.png' %}" alt="reanBio Logo">
+    </a>
+
+    <nav class="nav-menu">
+      <a href="{% url 'home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">🏠 หน้าหลัก</a>
+
+      {% if request.user.is_authenticated %}
+        <a href="{% url 'profile' %}" class="{% if request.resolver_match.url_name == 'profile' %}active{% endif %}">👤 ข้อมูลส่วนตัว</a>
+        <a href="{% url 'lessons' %}" class="{% if request.resolver_match.url_name == 'lessons' %}active{% endif %}">📚 บทเรียน</a>
+
+        <!-- 📌 แยกเมนูตามบทบาทคุณครู / นักเรียน -->
+        {% if request.user.is_teacher %}
+          <a href="{% url 'teacher_dashboard' %}" class="{% if request.resolver_match.url_name == 'teacher_dashboard' %}active{% endif %}">🏫 แดชบอร์ดห้องเรียน</a>
+        {% else %}
+          <a href="{% url 'my_classrooms' %}" class="{% if request.resolver_match.url_name == 'my_classrooms' %}active{% endif %}">🏫 ห้องเรียนของฉัน</a>
+        {% endif %}
+
+        <a href="{% url 'logout' %}">🚪 ออกจากระบบ</a>
+      {% else %}
+        <a href="{% url 'login' %}">🔑 เข้าสู่ระบบ</a>
+        <a href="{% url 'signup' %}">📝 สมัครสมาชิก</a>
+      {% endif %}
+    </nav>
+
+    {% if request.resolver_match.url_name != 'home' %}
+    <div style="margin-top: auto;">
+      <a href="{% url 'home' %}" class="btn-back-home">⬅️ กลับหน้าหลัก</a>
+    </div>
+    {% endif %}
+  </aside>
+  {% endif %}
+
+  <div
+    class="main-container {% if request.resolver_match.url_name == 'login' or request.resolver_match.url_name == 'signup' %}full-width-container{% endif %}">
+
+    <!-- 📌 Topbar -->
+    <header class="top-navbar">
+      <!-- 📱 ปุ่ม Hamburger Menu (จะโชว์เฉพาะหน้าจอมือถือ) -->
+      {% if request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'signup' %}
+      <button onclick="toggleMobileSidebar()" class="md:hidden text-white font-bold text-2xl px-2 py-1 focus:outline-none">
+        ☰
+      </button>
+      {% else %}
+      <div></div>
+      {% endif %}
+
+      {% if request.user.is_authenticated %}
+      <div style="position: relative;">
+        <button onclick="toggleProfileDropdown()" class="user-pill-btn">
+          <span>ยินดีต้อนรับ, {{ request.user.username }}</span>
+          <span>🧬</span>
+          <span id="arrow-icon" style="font-size: 0.75rem; transition: 0.2s;">▲</span>
+        </button>
+
+        <div id="profile-dropdown" class="dropdown-card hidden">
+          <!-- 📌 กดแล้วเด้งมาหน้าโปรไฟล์นี้เสมอ -->
+          <a href="{% url 'profile' %}" class="profile-info-box">
+            <div class="avatar-circle">
+              {{ request.user.username|first|upper }}
+            </div>
+            <div style="display: flex; flex-direction: column; text-align: left;">
+              <span style="color: #287a28; font-weight: 700; font-size: 1rem; line-height: 1.2;">
+                {% if request.user.first_name %}
+                  {{ request.user.first_name }} {{ request.user.last_name }}
+                {% else %}
+                  {{ request.user.username }}
+                {% endif %}
+              </span>
+              <span style="color: #8ba28f; font-size: 0.8rem; font-weight: 500;">
+                @{{ request.user.username }}
+              </span>
+            </div>
+          </a>
+        </div>
+      </div>
+      {% endif %}
+    </header>
+
+    <main class="content-wrapper">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script>
+    // 📱 ฟังก์ชันสำหรับเปิด-ปิด Sidebar ในมือถือ
+    function toggleMobileSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const backdrop = document.getElementById('mobile-backdrop');
+      if (sidebar && backdrop) {
+        sidebar.classList.toggle('active');
+        backdrop.classList.toggle('active');
+      }
+    }
+
+    // 📌 ระบบคำนวณทิศทางเมาส์และเคลื่อนที่พื้นหลัง Parallax
+    if (window.innerWidth > 768) {
+      document.addEventListener('mousemove', function (e) {
+        const mouseX = (e.clientX / window.innerWidth) - 0.5;
+        const mouseY = (e.clientY / window.innerHeight) - 0.5;
+
+        // 1. ขยับลายตารางจุด Dot Grid
+        const grid = document.querySelector('.bg-antigravity-grid');
+        if (grid) {
+          grid.style.transform = `translate3d(${mouseX * 45}px, ${mouseY * 45}px, 0)`;
+        }
+
+        // 2. ขยับวงแสงนีออนโกลว์
+        const orb1 = document.querySelector('.glow-orb-1');
+        const orb2 = document.querySelector('.glow-orb-2');
+        const orb3 = document.querySelector('.glow-orb-3');
+
+        if (orb1) orb1.style.transform = `translate3d(${mouseX * -65}px, ${mouseY * -65}px, 0)`;
+        if (orb2) orb2.style.transform = `translate3d(${mouseX * 85}px, ${mouseY * 85}px, 0)`;
+        if (orb3) orb3.style.transform = `translate3d(${mouseX * -45}px, ${mouseY * -45}px, 0)`;
+
+        // 3. ขยับอีโมจิชีววิทยาตามทิศทางเมาส์ด้วยระดับความเร็วแยกรายตัว
+        const emojis = document.querySelectorAll('.emoji');
+        emojis.forEach((emoji, idx) => {
+          const factor = ((idx % 5) + 1) * 12;
+          emoji.style.transform = `translate3d(${mouseX * factor}px, ${mouseY * factor}px, 0)`;
+        });
+      });
+    }
+
+    // 📌 Toggle Profile Dropdown
+    function toggleProfileDropdown() {
+      const dropdown = document.getElementById('profile-dropdown');
+      const arrow = document.getElementById('arrow-icon');
+      if (dropdown) {
+        dropdown.classList.toggle('hidden');
+        if (arrow) {
+          arrow.style.transform = dropdown.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+      }
+    }
+
+    window.addEventListener('click', function (e) {
+      const btn = document.querySelector('.user-pill-btn');
+      const dropdown = document.getElementById('profile-dropdown');
+      if (dropdown && btn && !btn.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.add('hidden');
+        const arrow = document.getElementById('arrow-icon');
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+      }
+    });
+  </script>
+
+</body>
+
+</html>

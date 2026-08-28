@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}หน้าแรก - reanBio{% endblock %}
+
+{% block content %}
+<!-- ส่วนแบนเนอร์ด้านบน -->
+<div class="hero-container">
+  <div class="hero-text">
+    <div class="badge">✨ แพลตฟอร์มเรียนชีวะยุคใหม่ สำหรับเด็กม.ปลาย & มหาลัย</div>
+    <h1>เรียนชีววิทยาออนไลน์<br>สนุก เข้าใจง่าย ไม่น่าเบื่อ</h1>
+    <p>ออกแบบบทเรียนตามเป้าหมาย มีทั้ง 3D Anatomy, แฟลชการ์ดท่องจำคำศัพท์ และควิซทดสอบความรู้
+      พร้อมช่วยให้คุณเก่งขึ้นได้จริง</p>
+
+    {% if not request.user.is_authenticated %}
+    <a href="{% url 'signup' %}" class="btn-primary">เริ่มต้นเรียนชีววิทยาฟรี 🌿</a>
+    {% endif %}
+  </div>
+
+  <div class="hero-image">
+    <!-- ⚠️ เปลี่ยนลิงก์รูปตรง src="" ให้เป็นรูปเซลล์ที่คุณมีได้เลยครับ -->
+    <img src="https://images.unsplash.com/photo-1576086213369-97a306d36557?q=80&w=800&auto=format&fit=crop"
+      alt="Biology Cell">
+  </div>
+</div>
+
+<!-- ส่วนการ์ดฟีเจอร์ด้านล่าง -->
+<div class="features-grid">
+  <div class="feature-card">
+    <h3>🧠 Interactive Flashcards</h3>
+    <p>ท่องจำศัพท์ชีวะแบบสมาร์ทการ์ด</p>
+  </div>
+  <div class="feature-card">
+    <h3>📊 AI Quiz Generator</h3>
+    <p>ทดสอบความรู้ด้วยควิซอัจฉริยะ</p>
+  </div>
+  <div class="feature-card">
+    <h3>🏆 Track Your Progress</h3>
+    <p>ติดตามพัฒนาการเรียนรู้ได้ทุกวัน</p>
+  </div>
+</div>
+{% endblock %}

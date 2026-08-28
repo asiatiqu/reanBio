@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}เข้าสู่ระบบ - reanBio{% endblock %}
+
+{% block content %}
+
+<body
+    class="bg-bio-bg min-h-screen flex flex-col justify-center items-center text-slate-800 overflow-x-hidden relative p-4">
+
+    <!-- 🌿 ลายพื้นหลังชีววิทยากระจายทั่วหน้าจอ + ขยับดุ๊กดิ๊กไปมาได้ -->
+    <div
+        class="fixed inset-0 pointer-events-none z-0 opacity-10 grid grid-cols-4 md:grid-cols-6 gap-8 p-6 select-none overflow-hidden">
+        <div class="flex justify-center items-center text-6xl bio-float-1">🧬</div>
+        <div class="flex justify-center items-center text-5xl bio-float-2">🦠</div>
+        <div class="flex justify-center items-center text-7xl bio-float-3">🧫</div>
+        <div class="flex justify-center items-center text-6xl bio-float-1">🔬</div>
+        <div class="flex justify-center items-center text-5xl bio-float-2">🌿</div>
+        <div class="flex justify-center items-center text-7xl bio-float-3">🧠</div>
+
+        <div class="flex justify-center items-center text-6xl bio-float-2">🫀</div>
+        <div class="flex justify-center items-center text-5xl bio-float-3">🌱</div>
+        <div class="flex justify-center items-center text-7xl bio-float-1">🧪</div>
+        <div class="flex justify-center items-center text-6xl bio-float-2">🍃</div>
+        <div class="flex justify-center items-center text-5xl bio-float-3">🧬</div>
+        <div class="flex justify-center items-center text-7xl bio-float-1">🧫</div>
+
+        <div class="flex justify-center items-center text-7xl bio-float-3">🧠</div>
+        <div class="flex justify-center items-center text-5xl bio-float-1">🌿</div>
+        <div class="flex justify-center items-center text-6xl bio-float-2">🔬</div>
+        <div class="flex justify-center items-center text-7xl bio-float-3">🧪</div>
+        <div class="flex justify-center items-center text-5xl bio-float-1">🌱</div>
+        <div class="flex justify-center items-center text-6xl bio-float-2">🫀</div>
+
+        <div class="flex justify-center items-center text-5xl bio-float-1">🦠</div>
+        <div class="flex justify-center items-center text-6xl bio-float-3">🧬</div>
+        <div class="flex justify-center items-center text-5xl bio-float-2">🍃</div>
+        <div class="flex justify-center items-center text-7xl bio-float-1">🧫</div>
+        <div class="flex justify-center items-center text-6xl bio-float-3">🔬</div>
+        <div class="flex justify-center items-center text-5xl bio-float-2">🌿</div>
+    </div>
+
+    <!-- การ์ดเข้าสู่ระบบ (Login Card) สไตล์โค้งมน กระจกใสฝ้า -->
+    <div
+        class="w-full max-w-md bg-white/90 backdrop-blur-md rounded-[40px] border border-white shadow-xl p-8 md:p-10 z-10 relative space-y-6">
+
+        <!-- โลโก้และหัวข้อ -->
+        <div class="text-center space-y-2">
+            <a href="{% url 'home' %}" class="inline-block hover:scale-105 transition duration-300">
+                <img src="{% static 'reanBio/images/reanbio.png' %}" alt="reanBio Logo"
+                    class="h-16 w-auto mx-auto object-contain">
+            </a>
+            <h2 class="text-3xl font-bold text-bio-dark flex items-center justify-center gap-2">
+                เข้าสู่ระบบ 🧬
+            </h2>
+            <p class="text-slate-500 text-sm">ยินดีต้อนรับกลับสู่ reanBio อีกครั้ง</p>
+        </div>
+
+        <!-- ฟอร์มเข้าสู่ระบบ -->
+        <form method="post" class="space-y-5">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="bg-rose-50 text-rose-600 text-xs p-3 rounded-2xl border border-rose-200 text-center">
+                {% for error in form.non_field_errors %}
+                {{ error }}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- ช่อง Username -->
+            <div class="space-y-1.5">
+                <label for="{{ form.username.id_for_label }}" class="block text-sm font-semibold text-bio-dark">
+                    Username:
+                </label>
+                <input type="text" name="{{ form.username.name }}" id="{{ form.username.id_for_label }}"
+                    value="{{ form.username.value|default:'' }}" required
+                    class="w-full px-5 py-3.5 bg-bio-light/50 border border-bio-light rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition duration-200">
+                {% if form.username.errors %}
+                <p class="text-rose-500 text-xs mt-1">{{ form.username.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- ช่อง Password -->
+            <div class="space-y-1.5">
+                <label for="{{ form.password.id_for_label }}" class="block text-sm font-semibold text-bio-dark">
+                    Password:
+                </label>
+                <input type="password" name="{{ form.password.name }}" id="{{ form.password.id_for_label }}" required
+                    class="w-full px-5 py-3.5 bg-bio-light/50 border border-bio-light rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition duration-200">
+                {% if form.password.errors %}
+                <p class="text-rose-500 text-xs mt-1">{{ form.password.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- ปุ่มเข้าสู่ระบบ -->
+            <button type="submit"
+                class="w-full py-3.5 bg-gradient-to-r from-bio-main to-bio-dark text-white font-bold rounded-full shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-95 transition duration-300 text-base mt-2">
+                เข้าสู่ระบบ
+            </button>
+        </form>
+
+        <!-- ลิงก์ไปหน้าสมัครสมาชิก + เมนูกลับหน้าหลัก -->
+        <div class="text-center pt-2 space-y-3">
+            <p class="text-sm text-slate-500">
+                ยังไม่มีบัญชีใช่ไหม?
+                <a href="{% url 'signup' %}"
+                    class="text-bio-dark font-bold hover:underline hover:text-bio-main transition">
+                    สมัครสมาชิก
+                </a>
+            </p>
+
+            <div>
+                <a href="{% url 'home' %}"
+                    class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-bio-dark hover:underline transition">
+                    ⬅️ กลับหน้าหลัก
+                </a>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+
+</html>
+
+{% endblock %}

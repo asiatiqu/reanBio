@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}หน้าของคุณ - reanBio{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-5xl bg-white/95 backdrop-blur-md rounded-[35px] border border-white shadow-lg p-8 md:p-10 space-y-8">
+
+    <!-- 👤 ส่วนหัวโปรไฟล์ -->
+    <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 pb-6 border-b border-slate-100">
+        <!-- รูปโปรไฟล์ -->
+        <div class="w-28 h-28 bg-bio-light border-4 border-bio-main text-bio-dark rounded-full flex items-center justify-center font-bold text-4xl shadow-md overflow-hidden shrink-0">
+            {% if user.userprofile.avatar %}
+            <img src="{{ user.userprofile.avatar.url }}" alt="Profile" class="w-full h-full object-cover">
+            {% else %}
+            {{ request.user.username|first|upper }}
+            {% endif %}
+        </div>
+
+        <!-- รายละเอียดผู้ใช้งาน -->
+        <div class="space-y-2 text-center sm:text-left">
+            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-3">
+                <h2 class="text-2xl md:text-3xl font-bold text-bio-dark">
+                    {% if request.user.first_name %}
+                    {{ request.user.first_name }} {{ request.user.last_name }}
+                    {% else %}
+                    {{ request.user.username }}
+                    {% endif %}
+                </h2>
+
+                <!-- 📌 ป้ายบอกบทบาทผู้ใช้ -->
+                {% if request.user.is_teacher %}
+                <span class="bg-bio-main text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                    👨‍🏫 คุณครูผู้สอน
+                </span>
+                {% else %}
+                <span class="bg-bio-light text-bio-dark border border-bio-light text-xs font-bold px-3 py-1 rounded-full">
+                    🎓 นักเรียน
+                </span>
+                {% endif %}
+            </div>
+            <p class="text-slate-400 font-medium text-sm">@{{ request.user.username }}</p>
+        </div>
+    </div>
+
+    <!-- 📑 แถบเมนูแท็บ -->
+    <div class="space-y-6">
+        <div class="border-b border-slate-200">
+            <div class="flex overflow-x-auto gap-4 md:gap-8 text-sm md:text-base font-bold text-slate-500">
+                <button class="pb-3 border-b-2 border-bio-main text-bio-dark whitespace-nowrap">
+                    {% if request.user.is_teacher %}ห้องเรียนที่ฉันสอน{% else %}ห้องเรียนของฉัน{% endif %}
+                </button>
+                <button class="pb-3 hover:text-bio-dark transition whitespace-nowrap">
+                    วิดีโอที่เรียน
+                </button>
+                <button class="pb-3 hover:text-bio-dark transition whitespace-nowrap">
+                    เข้าชมล่าสุด
+                </button>
+                
+                <!-- 📌 เปลี่ยนเปลี่ยนเป็นแท็บ "แดชบอร์ด" -->
+                {% if request.user.is_teacher %}
+                <a href="{% url 'teacher_dashboard' %}" class="pb-3 hover:text-bio-dark transition whitespace-nowrap text-slate-500 hover:text-bio-dark">
+                    แดชบอร์ด
+                </a>
+                {% else %}
+                <button class="pb-3 hover:text-bio-dark transition whitespace-nowrap">
+                    แดชบอร์ด
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 📌 รายการห้องเรียน (แสดงตามบทบาทคุณครู / นักเรียน) -->
+        {% if classrooms %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {% for room in classrooms %}
+            <div class="bg-bio-light/40 border border-bio-light rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:shadow-md transition">
+                <div class="space-y-2">
+                    <div class="flex justify-between items-start gap-2">
+                        <h3 class="font-bold text-lg text-bio-dark leading-snug">{{ room.name }}</h3>
+                        <span class="text-xs font-bold bg-bio-main text-white px-3 py-1 rounded-full shrink-0">
+                            {{ room.code }}
+                        </span>
+                    </div>
+                    {% if request.user.is_teacher %}
+                    <p class="text-xs font-semibold text-slate-500">👥 นักเรียนทั้งหมด: {{ room.students.count }} คน</p>
+                    {% else %}
+                    <p class="text-xs font-semibold text-slate-500">👨‍🏫 สอนโดย: {{ room.teacher.first_name|default:room.teacher.username }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <a href="{% url 'classroom_detail' code=room.code %}" 
+                        class="block w-full py-2.5 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-center text-xs shadow transition">
+                        เข้าสู่ห้องเรียน 🚪
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <!-- 📌 กรณีคุณครูยังไม่ได้สร้างห้องเรียน / นักเรียนยังไม่ได้ เข้าร่วม -->
+        <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-3">
+            <span class="text-5xl">🌿</span>
+            {% if request.user.is_teacher %}
+            <p class="font-semibold text-base text-slate-700">คุณครูยังไม่ได้สร้างห้องเรียนใดๆ</p>
+            <p class="text-xs text-slate-400">สร้างห้องเรียนในแดชบอร์ดและนำรหัส 6 หลักไปแจกให้นักเรียนเข้าร่วม</p>
+            <a href="{% url 'teacher_dashboard' %}"
+                class="mt-2 px-5 py-2.5 bg-bio-main hover:bg-bio-dark text-white font-bold text-sm rounded-2xl transition flex items-center gap-2 shadow-sm">
+                <span>➕</span> ไปหน้าแดชบอร์ดเพื่อสร้างห้องเรียน
+            </a>
+            {% else %}
+            <p class="font-semibold text-base text-slate-700">ยังไม่ได้เข้าร่วมห้องเรียนใดๆ</p>
+            <p class="text-xs text-slate-400">ค้นหาห้องเรียนด้วยรหัสหรือชื่อของคุณครูเพื่อเริ่มเรียน</p>
+            <a href="{% url 'my_classrooms' %}"
+                class="mt-2 px-5 py-2.5 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold text-sm rounded-2xl border border-bio-light transition flex items-center gap-2">
+                <span>➕</span> เข้าร่วมห้องเรียนของคุณครู
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

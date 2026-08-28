@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ classroom.name }} - reanBio{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-6xl space-y-6">
+
+    <!-- 📌 ส่วนหัวห้องเรียน -->
+    <div class="bg-gradient-to-r from-bio-main to-bio-dark text-white p-8 md:p-10 rounded-[35px] shadow-lg space-y-3 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <span class="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold">
+                รหัสห้องเรียน: {{ classroom.code }}
+            </span>
+            <h1 class="text-3xl md:text-4xl font-extrabold mt-2">{{ classroom.name }}</h1>
+            <p class="text-sm opacity-90 mt-1">
+                👨‍🏫 ผู้สอน: {{ classroom.teacher.first_name|default:classroom.teacher.username }}
+            </p>
+        </div>
+        <a href="{% url 'my_classrooms' %}" class="px-5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition">
+            ⬅️ กลับไปรายการห้องเรียน
+        </a>
+    </div>
+
+    <!-- 📌 ปุ่มเครื่องมือสำหรับคุณครู (เพิ่มคลิป / ข้อสอบ / ไฟล์การสอน) -->
+    {% if request.user == classroom.teacher or request.user.is_teacher %}
+    <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-8 space-y-4">
+        <h2 class="text-lg font-bold text-bio-dark flex items-center gap-2">
+            ⚙️ เครื่องมือจัดการสำหรับคุณครู
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <!-- ปุ่มเพิ่มคลิปวิดีโอ -->
+            <button class="flex items-center justify-center gap-3 p-4 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl transition border border-bio-light shadow-sm text-sm group">
+                <span class="text-2xl group-hover:scale-110 transition">📹</span>
+                <span>เพิ่มคลิปวิดีโอ</span>
+            </button>
+
+            <!-- ปุ่มเพิ่มข้อสอบ -->
+            <button class="flex items-center justify-center gap-3 p-4 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl transition border border-bio-light shadow-sm text-sm group">
+                <span class="text-2xl group-hover:scale-110 transition">📝</span>
+                <span>เพิ่มแบบทดสอบ/ข้อสอบ</span>
+            </button>
+
+            <!-- ปุ่มเพิ่มไฟล์การสอน -->
+            <button class="flex items-center justify-center gap-3 p-4 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl transition border border-bio-light shadow-sm text-sm group">
+                <span class="text-2xl group-hover:scale-110 transition">📁</span>
+                <span>อัปโหลดไฟล์การสอน</span>
+            </button>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 📌 พื้นที่แสดงเนื้อหาบทเรียนแยกตามประเภท -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        <!-- 1. คลังวิดีโอ -->
+        <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-md p-6 space-y-4">
+            <h3 class="font-bold text-bio-dark text-lg flex items-center gap-2">
+                🎥 คลิปวิดีโอการสอน
+            </h3>
+            <div class="py-10 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl space-y-2">
+                <span class="text-4xl">🎬</span>
+                <p class="text-xs font-semibold text-slate-500">ยังไม่มีวิดีโอในห้องเรียนนี้</p>
+            </div>
+        </div>
+
+        <!-- 2. คลังข้อสอบ -->
+        <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-md p-6 space-y-4">
+            <h3 class="font-bold text-bio-dark text-lg flex items-center gap-2">
+                ✍️ แบบทดสอบ & ควิซ
+            </h3>
+            <div class="py-10 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl space-y-2">
+                <span class="text-4xl">📋</span>
+                <p class="text-xs font-semibold text-slate-500">ยังไม่มีแบบทดสอบในห้องเรียนนี้</p>
+            </div>
+        </div>
+
+        <!-- 3. คลังไฟล์ชีตการเรียน -->
+        <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-md p-6 space-y-4">
+            <h3 class="font-bold text-bio-dark text-lg flex items-center gap-2">
+                📄 เอกสาร & ไฟล์การสอน
+            </h3>
+            <div class="py-10 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl space-y-2">
+                <span class="text-4xl">📂</span>
+                <p class="text-xs font-semibold text-slate-500">ยังไม่มีเอกสารในห้องเรียนนี้</p>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

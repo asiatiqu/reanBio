@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ lesson.title }} - reanBio{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-5xl space-y-6">
+
+    <!-- ส่วนหัวบทเรียน -->
+    <div class="bg-gradient-to-r from-bio-main to-bio-dark text-white p-8 md:p-10 rounded-[35px] shadow-lg space-y-3 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <span class="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold">
+                ระดับชั้น {{ lesson.get_grade_display }}
+            </span>
+            <h1 class="text-3xl md:text-4xl font-extrabold mt-2 flex items-center gap-3">
+                <span>{{ lesson.icon }}</span> {{ lesson.title }}
+            </h1>
+            <p class="text-sm opacity-90 mt-1 max-w-2xl">{{ lesson.description }}</p>
+        </div>
+        <a href="{% url 'lessons' %}" class="px-5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition whitespace-nowrap">
+            ⬅️ กลับคลังบทเรียน
+        </a>
+    </div>
+
+    <!-- กล่องแสดงเนื้อหาบทเรียน -->
+    <div class="bg-white/95 backdrop-blur-md rounded-[35px] border border-white shadow-lg p-8 md:p-10 space-y-6">
+        <h2 class="text-xl font-bold text-bio-dark flex items-center gap-2 border-b pb-4 border-slate-100">
+            📖 เนื้อหาการเรียนรู้
+        </h2>
+
+        <div class="p-6 bg-bio-light/50 rounded-2xl text-slate-700 leading-relaxed text-sm md:text-base space-y-4">
+            <p class="font-semibold text-bio-dark">สรุปสาระสำคัญของบทเรียน {{ lesson.title }}:</p>
+            <p>{{ lesson.description }}</p>
+        </div>
+
+        <!-- ตัวอย่างพื้นที่วางสื่อการเรียน -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+            <div class="p-6 border-2 border-dashed border-slate-200 rounded-3xl text-center space-y-2">
+                <span class="text-4xl">🎬</span>
+                <p class="font-bold text-bio-dark text-sm">วิดีโอการสอน</p>
+                <p class="text-xs text-slate-400">เตรียมพบกับวิดีโออธิบายเนื้อหาอย่างละเอียด</p>
+            </div>
+            <div class="p-6 border-2 border-dashed border-slate-200 rounded-3xl text-center space-y-2">
+                <span class="text-4xl">🧫</span>
+                <p class="font-bold text-bio-dark text-sm">สื่อ 3D Interactive / Flashcards</p>
+                <p class="text-xs text-slate-400">สำรวจแบบจำลองโครงสร้างทางชีววิทยา</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
