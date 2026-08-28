@@ -93,3 +93,84 @@ class Lesson(models.Model):
 
     def __str__(self):
         return f"[{self.get_grade_display()}] {self.title}"
+
+
+# 📌 4. ระบบแบบฝึกหัด / ข้อสอบ / เก็บคะแนน
+class Question(models.Model):
+    QUESTION_TYPES = (
+        ('mcq', 'ปรนัย (เลือกคำตอบ)'),
+        ('text', 'อัตนัย (พิมพ์คำตอบ)'),
+    )
+
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='questions', verbose_name="บทเรียนที่เกี่ยวข้อง")
+    order = models.PositiveIntegerField(default=1, verbose_name="ลำดับข้อ")
+    question_type = models.CharField(max_length=4, choices=QUESTION_TYPES, default='mcq', verbose_name="ประเภทคำถาม")
+    text = models.TextField(verbose_name="โจทย์คำถาม")
+    explanation = models.TextField(blank=True, default="", verbose_name="คำอธิบาย/เฉลย")
+    points = models.PositiveIntegerField(default=1, verbose_name="คะแนนเต็มของข้อนี้")
+    # สำหรับคำถามแบบอัตนัย: รายการคำตอบที่ยอมรับ (เทียบแบบไม่สนตัวพิมพ์เล็ก-ใหญ่ และช่องว่างส่วนเกิน)
+    accepted_answers = models.JSONField(default=list, blank=True, verbose_name="คำตอบที่ยอมรับ (อัตนัย)")
+
+    class Meta:
+        ordering = ['lesson', 'order']
+
+    def __str__(self):
+        return f"[{self.lesson}] ข้อ {self.order}: {self.text[:40]}"
+
+
+class Choice(models.Model):
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='choices', verbose_name="คำถาม")
+    order = models.PositiveIntegerField(default=1, verbose_name="ลำดับตัวเลือก")
+    text = models.CharField(max_length=500, verbose_name="ข้อความตัวเลือก")
+    is_correct = models.BooleanField(default=False, verbose_name="เป็นคำตอบที่ถูกต้อง")
+
+    class Meta:
+        ordering = ['question', 'order']
+
+    def __str__(self):
+        return self.text[:60]
+
+
+class Attempt(models.Model):
+    MODE_CHOICES = (
+        ('practice', 'แบบฝึกหัด'),
+        ('exam', 'ข้อสอบ'),
+    )
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='attempts', verbose_name="ผู้ทำ")
+    mode = models.CharField(max_length=10, choices=MODE_CHOICES, default='practice', verbose_name="ประเภทการทำ")
+    lesson = models.ForeignKey(Lesson, on_delete=models.SET_NULL, null=True, blank=True, related_name='attempts', verbose_name="บทเรียน (สำหรับแบบฝึกหัด)")
+    grade = models.CharField(max_length=2, blank=True, default="", verbose_name="ระดับชั้น (สำหรับข้อสอบ)")
+    chapter = models.PositiveIntegerField(null=True, blank=True, verbose_name="บทที่ (สำหรับข้อสอบ)")
+    score = models.FloatField(default=0, verbose_name="คะแนนที่ได้")
+    max_score = models.FloatField(default=0, verbose_name="คะแนนเต็ม")
+    started_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(null=True, blank=True, verbose_name="เวลาที่ส่งคำตอบ")
+
+    class Meta:
+        ordering = ['-started_at']
+
+    def __str__(self):
+        return f"{self.user} - {self.get_mode_display()} ({self.score}/{self.max_score})"
+
+    @property
+    def percent(self):
+        if not self.max_score:
+            return 0
+        return round(self.score / self.max_score * 100, 1)
+
+
+class AttemptAnswer(models.Model):
+    attempt = models.ForeignKey(Attempt, on_delete=models.CASCADE, related_name='answers', verbose_name="การทำแบบฝึกหัด/ข้อสอบ")
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='attempt_answers', verbose_name="คำถาม")
+    order = models.PositiveIntegerField(default=1, verbose_name="ลำดับที่แสดงในการทำครั้งนี้")
+    selected_choice = models.ForeignKey(Choice, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="ตัวเลือกที่เลือก")
+    text_answer = models.TextField(blank=True, default="", verbose_name="คำตอบที่พิมพ์")
+    is_correct = models.BooleanField(default=False, verbose_name="ตอบถูกหรือไม่")
+    points_earned = models.FloatField(default=0, verbose_name="คะแนนที่ได้ในข้อนี้")
+
+    class Meta:
+        ordering = ['attempt', 'order']
+
+    def __str__(self):
+        return f"Attempt#{self.attempt_id} - Q{self.question_id}"

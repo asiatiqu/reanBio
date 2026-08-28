@@ -22,9 +22,16 @@
             </h1>
             <p class="text-sm opacity-90 mt-1 max-w-2xl">{{ lesson.description }}</p>
         </div>
-        <a href="{% url 'lessons' %}" class="px-5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition whitespace-nowrap">
-            ⬅️ กลับคลังบทเรียน
-        </a>
+        <div class="flex flex-col gap-2 shrink-0">
+            <a href="{% url 'lessons' %}" class="px-5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition whitespace-nowrap text-center">
+                ⬅️ กลับคลังบทเรียน
+            </a>
+            {% if lesson.questions.count %}
+            <a href="{% url 'lesson_exercise' pk=lesson.pk %}" class="px-5 py-2.5 bg-white text-bio-dark hover:bg-bio-light font-bold rounded-2xl text-xs transition whitespace-nowrap text-center shadow">
+                📝 ทำแบบฝึกหัด ({{ lesson.questions.count }} ข้อ)
+            </a>
+            {% endif %}
+        </div>
     </div>
 
     <!-- กล่องแสดงเนื้อหาบทเรียน -->

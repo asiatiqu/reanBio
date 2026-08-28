@@ -672,6 +672,8 @@
       {% if request.user.is_authenticated %}
         <a href="{% url 'profile' %}" class="{% if request.resolver_match.url_name == 'profile' %}active{% endif %}">👤 ข้อมูลส่วนตัว</a>
         <a href="{% url 'lessons' %}" class="{% if request.resolver_match.url_name == 'lessons' %}active{% endif %}">📚 บทเรียน</a>
+        <a href="{% url 'exam_start' %}" class="{% if request.resolver_match.url_name == 'exam_start' or request.resolver_match.url_name == 'attempt_take' or request.resolver_match.url_name == 'attempt_result' %}active{% endif %}">📋 ทำข้อสอบ</a>
+        <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">📊 แดชบอร์ดผลการเรียน</a>
 
         <!-- 📌 แยกเมนูตามบทบาทคุณครู / นักเรียน -->
         {% if request.user.is_teacher %}

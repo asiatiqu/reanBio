@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}แบบฝึกหัด: {{ lesson.title }} - reanBio{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-4xl space-y-6">
+
+    <div class="bg-gradient-to-r from-bio-main to-bio-dark text-white p-8 md:p-10 rounded-[35px] shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <span class="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold">
+                ระดับชั้น {{ lesson.get_grade_display }}{% if lesson.chapter_title %} · บทที่ {{ lesson.chapter }}: {{ lesson.chapter_title }}{% endif %}
+            </span>
+            <h1 class="text-2xl md:text-3xl font-extrabold mt-2 flex items-center gap-3">
+                📝 แบบฝึกหัด: {{ lesson.title }}
+            </h1>
+            <p class="text-sm opacity-90 mt-1">มีทั้งหมด {{ question_count }} ข้อ ทำได้หลายครั้ง ระบบจะเก็บประวัติคะแนนไว้ให้อัตโนมัติ</p>
+        </div>
+        <a href="{% url 'lesson_detail' pk=lesson.pk %}" class="px-5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition whitespace-nowrap">
+            ⬅️ กลับไปหน้าบทเรียน
+        </a>
+    </div>
+
+    <div class="bg-white/95 backdrop-blur-md rounded-[35px] border border-white shadow-lg p-8 md:p-10 space-y-6">
+        {% if question_count == 0 %}
+        <div class="col-span-full py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-[30px] bg-white/40">
+            <span class="text-5xl">📭</span>
+            <p class="font-semibold text-slate-700 mt-2">บทเรียนนี้ยังไม่มีแบบฝึกหัด</p>
+        </div>
+        {% else %}
+        <div class="flex flex-col md:flex-row gap-4">
+            <form method="post" action="{% url 'start_practice_attempt' pk=lesson.pk %}" class="flex-1">
+                {% csrf_token %}
+                <button type="submit" class="w-full py-4 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-center text-sm shadow transition">
+                    🚀 เริ่มทำแบบฝึกหัด ({{ question_count }} ข้อ)
+                </button>
+            </form>
+            <a href="{% url 'exercise_pdf' pk=lesson.pk %}"
+                class="flex-1 py-4 bg-white border-2 border-bio-main text-bio-dark font-bold rounded-2xl text-center text-sm shadow transition hover:bg-bio-light flex items-center justify-center gap-2">
+                📄 ดาวน์โหลด PDF ไปทำบนกระดาษ
+            </a>
+        </div>
+
+        <div>
+            <h2 class="text-lg font-bold text-bio-dark flex items-center gap-2 border-b pb-3 border-slate-100 mb-4">
+                📊 ประวัติการทำแบบฝึกหัดของฉัน
+            </h2>
+            {% if history %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead>
+                        <tr class="text-slate-400 text-xs uppercase">
+                            <th class="py-2 pr-4">ครั้งที่ทำ</th>
+                            <th class="py-2 pr-4">คะแนน</th>
+                            <th class="py-2 pr-4">เปอร์เซ็นต์</th>
+                            <th class="py-2 pr-4"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for attempt in history %}
+                        <tr class="border-t border-slate-100">
+                            <td class="py-2.5 pr-4 text-slate-600">{{ attempt.submitted_at|date:"d/m/Y H:i" }}</td>
+                            <td class="py-2.5 pr-4 font-bold text-bio-dark">{{ attempt.score|floatformat:0 }}/{{ attempt.max_score|floatformat:0 }}</td>
+                            <td class="py-2.5 pr-4">
+                                <span class="px-3 py-1 rounded-full text-xs font-bold {% if attempt.percent >= 80 %}bg-green-100 text-green-700{% elif attempt.percent >= 50 %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-600{% endif %}">
+                                    {{ attempt.percent }}%
+                                </span>
+                            </td>
+                            <td class="py-2.5 pr-4">
+                                <a href="{% url 'attempt_result' attempt_pk=attempt.pk %}" class="text-bio-main font-semibold hover:underline">ดูผล →</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400">ยังไม่มีประวัติการทำแบบฝึกหัดนี้ ลองเริ่มทำดูได้เลย!</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

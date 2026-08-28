@@ -1,15 +1,20 @@
+import os
+import random
 import re
 from itertools import groupby
 
+from django.conf import settings
 from django.db.models import Q
+from django.http import HttpResponse, Http404
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.utils import timezone
 from django.utils.html import escape
 
-from .models import UserProfile, Classroom, Lesson
+from .models import UserProfile, Classroom, Lesson, Question, Choice, Attempt, AttemptAnswer
 from .forms import UserSignUpForm
 
 
@@ -239,3 +244,287 @@ def lesson_detail_view(request, pk):
         'content_html': content_html,
         'search_query': search_query,
     })
+
+
+# ============================================================
+# 📌 5. ระบบแบบฝึกหัด / ข้อสอบ / เก็บคะแนน
+# ============================================================
+
+def _grade_text_answer(question, raw_answer):
+    """ตรวจคำตอบแบบอัตนัยแบบผ่อนปรน: เทียบคำสำคัญแบบไม่สนตัวพิมพ์เล็ก-ใหญ่และช่องว่างส่วนเกิน"""
+    normalized = " ".join((raw_answer or "").strip().lower().split())
+    if not normalized:
+        return False
+    for accepted in (question.accepted_answers or []):
+        acc_norm = " ".join(str(accepted).strip().lower().split())
+        if acc_norm and (acc_norm in normalized or normalized in acc_norm):
+            return True
+    return False
+
+
+@login_required
+def lesson_exercise_view(request, pk):
+    """หน้าภาพรวมแบบฝึกหัดของบทเรียนหนึ่งๆ พร้อมประวัติการทำของผู้ใช้"""
+    lesson = get_object_or_404(Lesson, pk=pk)
+    questions = list(lesson.questions.all())
+    history = Attempt.objects.filter(
+        user=request.user, lesson=lesson, mode='practice', submitted_at__isnull=False
+    ).order_by('-submitted_at')
+
+    return render(request, 'reanBio/lesson_exercise.html', {
+        'lesson': lesson,
+        'question_count': len(questions),
+        'history': history,
+    })
+
+
+@login_required
+def start_practice_attempt(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk)
+    questions = list(lesson.questions.all())
+    if not questions:
+        messages.info(request, "บทเรียนนี้ยังไม่มีแบบฝึกหัด")
+        return redirect('lesson_detail', pk=lesson.pk)
+
+    attempt = Attempt.objects.create(
+        user=request.user, mode='practice', lesson=lesson,
+        max_score=sum(q.points for q in questions),
+    )
+    for i, q in enumerate(questions, start=1):
+        AttemptAnswer.objects.create(attempt=attempt, question=q, order=i)
+
+    return redirect('attempt_take', attempt_pk=attempt.pk)
+
+
+@login_required
+def exam_start_view(request):
+    if request.method == 'POST':
+        grade = request.POST.get('grade', 'm4')
+        chapter = request.POST.get('chapter', '').strip()
+        try:
+            num_questions = int(request.POST.get('num_questions', 10))
+        except ValueError:
+            num_questions = 10
+
+        pool = Question.objects.filter(lesson__grade=grade)
+        if chapter:
+            pool = pool.filter(lesson__chapter=chapter)
+        pool = list(pool)
+
+        if not pool:
+            messages.error(request, "ไม่พบคำถามสำหรับตัวเลือกที่เลือก กรุณาลองใหม่")
+            return redirect('exam_start')
+
+        num_questions = max(1, min(num_questions, len(pool)))
+        selected = random.sample(pool, num_questions)
+
+        attempt = Attempt.objects.create(
+            user=request.user, mode='exam', grade=grade,
+            chapter=int(chapter) if chapter else None,
+            max_score=sum(q.points for q in selected),
+        )
+        for i, q in enumerate(selected, start=1):
+            AttemptAnswer.objects.create(attempt=attempt, question=q, order=i)
+
+        return redirect('attempt_take', attempt_pk=attempt.pk)
+
+    chapters = list(
+        Lesson.objects.filter(grade='m4', chapter__isnull=False)
+        .exclude(chapter_title="")
+        .values_list('chapter', 'chapter_title')
+        .distinct()
+        .order_by('chapter')
+    )
+    total_questions = Question.objects.filter(lesson__grade='m4').count()
+
+    return render(request, 'reanBio/exam_start.html', {
+        'chapters': chapters,
+        'total_questions': total_questions,
+    })
+
+
+@login_required
+def attempt_take_view(request, attempt_pk):
+    attempt = get_object_or_404(Attempt, pk=attempt_pk, user=request.user)
+    if attempt.submitted_at:
+        return redirect('attempt_result', attempt_pk=attempt.pk)
+
+    answers = list(
+        attempt.answers.select_related('question')
+        .prefetch_related('question__choices')
+        .order_by('order')
+    )
+
+    if request.method == 'POST':
+        total_score = 0
+        for ans in answers:
+            q = ans.question
+            if q.question_type == 'mcq':
+                choice_id = request.POST.get(f'q{ans.id}')
+                selected = q.choices.filter(pk=choice_id).first() if choice_id else None
+                is_correct = bool(selected and selected.is_correct)
+                ans.selected_choice = selected
+                ans.is_correct = is_correct
+                ans.points_earned = q.points if is_correct else 0
+            else:
+                text_val = request.POST.get(f'q{ans.id}', '').strip()
+                is_correct = _grade_text_answer(q, text_val)
+                ans.text_answer = text_val
+                ans.is_correct = is_correct
+                ans.points_earned = q.points if is_correct else 0
+            ans.save()
+            total_score += ans.points_earned
+
+        attempt.score = total_score
+        attempt.submitted_at = timezone.now()
+        attempt.save()
+        return redirect('attempt_result', attempt_pk=attempt.pk)
+
+    return render(request, 'reanBio/attempt_take.html', {'attempt': attempt, 'answers': answers})
+
+
+@login_required
+def attempt_result_view(request, attempt_pk):
+    attempt = get_object_or_404(Attempt, pk=attempt_pk, user=request.user)
+    answers = (
+        attempt.answers.select_related('question', 'selected_choice')
+        .prefetch_related('question__choices')
+        .order_by('order')
+    )
+    return render(request, 'reanBio/attempt_result.html', {'attempt': attempt, 'answers': answers})
+
+
+@login_required
+def dashboard_view(request):
+    attempts = list(
+        Attempt.objects.filter(user=request.user, submitted_at__isnull=False)
+        .select_related('lesson')
+        .order_by('submitted_at')
+    )
+    practice_attempts = [a for a in attempts if a.mode == 'practice']
+    exam_attempts = [a for a in attempts if a.mode == 'exam']
+
+    def label_for(a):
+        if a.lesson:
+            return str(a.lesson.title)
+        if a.chapter:
+            return f"ข้อสอบบทที่ {a.chapter}"
+        return "ข้อสอบรวม"
+
+    def series(qs):
+        return [
+            {
+                'date': a.submitted_at.strftime('%d/%m/%y %H:%M'),
+                'percent': a.percent,
+                'label': label_for(a),
+            }
+            for a in qs
+        ]
+
+    def trend(qs):
+        if len(qs) < 2:
+            return None
+        mid = max(1, len(qs) // 2)
+        first_half = qs[:mid]
+        second_half = qs[mid:] or qs[-1:]
+        avg1 = sum(a.percent for a in first_half) / len(first_half)
+        avg2 = sum(a.percent for a in second_half) / len(second_half)
+        return round(avg2 - avg1, 1)
+
+    return render(request, 'reanBio/dashboard.html', {
+        'practice_attempts': list(reversed(practice_attempts)),
+        'exam_attempts': list(reversed(exam_attempts)),
+        'practice_series': series(practice_attempts),
+        'exam_series': series(exam_attempts),
+        'practice_trend': trend(practice_attempts),
+        'exam_trend': trend(exam_attempts),
+        'total_attempts': len(attempts),
+    })
+
+
+@login_required
+def exercise_pdf_view(request, pk):
+    """สร้างไฟล์ PDF ของแบบฝึกหัดในบทเรียนนี้ (ไม่เฉลย) สำหรับพิมพ์ไปทำบนกระดาษ"""
+    lesson = get_object_or_404(Lesson, pk=pk)
+    questions = list(lesson.questions.prefetch_related('choices').all())
+    if not questions:
+        raise Http404("บทเรียนนี้ยังไม่มีแบบฝึกหัด")
+
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfgen import canvas
+
+    font_dir = os.path.join(os.path.dirname(__file__), 'static', 'reanBio', 'fonts')
+    if 'Waree' not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont('Waree', os.path.join(font_dir, 'Waree.ttf')))
+        pdfmetrics.registerFont(TTFont('Waree-Bold', os.path.join(font_dir, 'Waree-Bold.ttf')))
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="exercise_{lesson.pk}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=A4)
+    width, height = A4
+    margin = 2 * cm
+    bottom_limit = 2.2 * cm
+    y = height - margin
+
+    def wrap_text(text, font, size, max_width):
+        lines = []
+        current = ""
+        for ch in text:
+            test = current + ch
+            if pdfmetrics.stringWidth(test, font, size) > max_width and current:
+                lines.append(current)
+                current = ch
+            else:
+                current = test
+        if current:
+            lines.append(current)
+        return lines or [""]
+
+    def draw_wrapped(text, x, start_y, font, size, max_width, leading):
+        cur_y = start_y
+        for line in wrap_text(text, font, size, max_width):
+            if cur_y < bottom_limit:
+                p.showPage()
+                cur_y = height - margin
+            p.setFont(font, size)
+            p.drawString(x, cur_y, line)
+            cur_y -= leading
+        return cur_y
+
+    p.setFont('Waree-Bold', 16)
+    p.drawCentredString(width / 2, y, f"แบบฝึกหัด: {lesson.title}")
+    y -= 0.9 * cm
+    p.setFont('Waree', 10)
+    p.drawString(margin, y, "ชื่อ-นามสกุล: ..........................................  เลขที่: ..........  วันที่: ..........")
+    y -= 1.0 * cm
+
+    content_width = width - 2 * margin
+    for idx, q in enumerate(questions, start=1):
+        if y < bottom_limit + 1.5 * cm:
+            p.showPage()
+            y = height - margin
+        y = draw_wrapped(f"{idx}. {q.text}", margin, y, 'Waree-Bold', 11, content_width, 0.55 * cm)
+        y -= 0.15 * cm
+
+        if q.question_type == 'mcq':
+            letters = "กขคงจฉชซ"
+            for c_idx, choice in enumerate(q.choices.all()):
+                letter = letters[c_idx] if c_idx < len(letters) else str(c_idx + 1)
+                y = draw_wrapped(f"   {letter}. {choice.text}", margin, y, 'Waree', 10, content_width, 0.5 * cm)
+        else:
+            p.setFont('Waree', 10)
+            for _ in range(3):
+                if y < bottom_limit:
+                    p.showPage()
+                    y = height - margin
+                p.line(margin, y, width - margin, y)
+                y -= 0.85 * cm
+
+        y -= 0.35 * cm
+
+    p.save()
+    return response
