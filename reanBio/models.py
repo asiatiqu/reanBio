@@ -78,6 +78,7 @@ class Lesson(models.Model):
     grade = models.CharField(max_length=2, choices=GRADE_CHOICES, verbose_name="ระดับชั้น")
     icon = models.CharField(max_length=10, default="🧬", verbose_name="อีโมจิประจำบท")
     description = models.TextField(verbose_name="คำอธิบายย่อย")
+    content = models.TextField(blank=True, default="", verbose_name="เนื้อหาบทเรียนแบบเต็ม")
     sub_lessons_count = models.PositiveIntegerField(default=1, verbose_name="จำนวนบทเรียนย่อย")
     duration_minutes = models.PositiveIntegerField(default=30, verbose_name="ระยะเวลาเรียน (นาที)")
     order = models.PositiveIntegerField(default=1, verbose_name="ลำดับการแสดงผล")

@@ -1,11 +1,49 @@
+import re
+
+from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.utils.html import escape
 
 from .models import UserProfile, Classroom, Lesson
 from .forms import UserSignUpForm
+
+
+# 📌 ช่วยเน้นคำค้นหาในเนื้อหา และตัดข้อความให้เหลือแค่ช่วงที่เจอคำ (snippet)
+def _highlight(text, query):
+    escaped_text = escape(text)
+    if not query:
+        return escaped_text
+    pattern = re.compile(re.escape(escape(query)), re.IGNORECASE)
+    return pattern.sub(lambda m: f"<mark class='bg-yellow-200 rounded px-0.5'>{m.group(0)}</mark>", escaped_text)
+
+
+def _render_content_html(text, query):
+    """แปลงเนื้อหาบทเรียนเป็น HTML: escape ป้องกัน XSS, เน้นคำค้นหา, และขึ้นย่อหน้าใหม่ตามบรรทัดว่าง"""
+    highlighted = _highlight(text or "", query)
+    paragraphs = [p.strip().replace("\n", "<br>") for p in highlighted.split("\n\n") if p.strip()]
+    return "".join(f"<p>{p}</p>" for p in paragraphs)
+
+
+def _build_content_snippet(content, query, radius=70):
+    if not content or not query:
+        return ""
+    lower_content = content.lower()
+    lower_query = query.lower()
+    idx = lower_content.find(lower_query)
+    if idx == -1:
+        return ""
+    start = max(0, idx - radius)
+    end = min(len(content), idx + len(query) + radius)
+    snippet = content[start:end].strip()
+    if start > 0:
+        snippet = "…" + snippet
+    if end < len(content):
+        snippet = snippet + "…"
+    return _highlight(snippet, query)
 
 # 📌 Decorator เช็กสิทธิ์เฉพาะคุณครู
 def teacher_required(view_func):
@@ -72,8 +110,27 @@ def lessons_view(request):
     if grade_filter in ['m4', 'm5', 'm6']:
         lessons = lessons.filter(grade=grade_filter)
 
+    # 📌 ค้นหาทั้งชื่อบทเรียน คำอธิบายย่อย และเนื้อหาแบบเต็ม
     if search_query:
-        lessons = lessons.filter(title__icontains=search_query)
+        lessons = lessons.filter(
+            Q(title__icontains=search_query)
+            | Q(description__icontains=search_query)
+            | Q(content__icontains=search_query)
+        )
+
+    lessons = list(lessons)
+
+    # 📌 ถ้ามีคำค้นหา แนบตัวอย่างข้อความ (snippet) ที่เจอคำในเนื้อหา พร้อมไฮไลต์คำนั้น
+    if search_query:
+        for lesson in lessons:
+            if search_query.lower() in lesson.title.lower():
+                lesson.search_snippet = ""
+            else:
+                lesson.search_snippet = _build_content_snippet(lesson.content, search_query) or \
+                    _build_content_snippet(lesson.description, search_query)
+    else:
+        for lesson in lessons:
+            lesson.search_snippet = ""
 
     return render(request, 'reanBio/lessons.html', {
         'lessons': lessons,
@@ -162,4 +219,11 @@ def my_classroom_view(request):
 
 def lesson_detail_view(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
-    return render(request, 'reanBio/lesson_detail.html', {'lesson': lesson})
+    search_query = request.GET.get('q', '').strip()
+    content_html = _render_content_html(lesson.content, search_query)
+
+    return render(request, 'reanBio/lesson_detail.html', {
+        'lesson': lesson,
+        'content_html': content_html,
+        'search_query': search_query,
+    })

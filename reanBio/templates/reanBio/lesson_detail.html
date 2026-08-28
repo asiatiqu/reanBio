@@ -33,6 +33,34 @@
             <p>{{ lesson.description }}</p>
         </div>
 
+        {% if lesson.content %}
+        <div class="pt-2">
+            <h3 class="text-lg font-bold text-bio-dark flex items-center gap-2 mb-3">📄 เนื้อหาแบบเต็ม</h3>
+
+            {% if search_query %}
+            <form method="get" class="mb-4">
+                <div class="relative w-full md:w-96">
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="ค้นหาคำในเนื้อหา..."
+                        class="w-full px-5 py-2.5 pl-11 bg-white border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main transition">
+                    <button type="submit" class="absolute left-4 top-2.5 text-slate-400 bg-transparent border-0 cursor-pointer">🔍</button>
+                </div>
+            </form>
+            {% else %}
+            <form method="get" class="mb-4">
+                <div class="relative w-full md:w-96">
+                    <input type="text" name="q" placeholder="ค้นหาคำในเนื้อหาบทเรียนนี้..."
+                        class="w-full px-5 py-2.5 pl-11 bg-white border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main transition">
+                    <button type="submit" class="absolute left-4 top-2.5 text-slate-400 bg-transparent border-0 cursor-pointer">🔍</button>
+                </div>
+            </form>
+            {% endif %}
+
+            <div class="p-6 md:p-8 bg-white border border-slate-100 rounded-2xl text-slate-700 leading-loose text-sm md:text-base [&_p]:mb-4 [&_p:last-child]:mb-0">
+                {{ content_html|safe }}
+            </div>
+        </div>
+        {% endif %}
+
         <!-- ตัวอย่างพื้นที่วางสื่อการเรียน -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
             <div class="p-6 border-2 border-dashed border-slate-200 rounded-3xl text-center space-y-2">
