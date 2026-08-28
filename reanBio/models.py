@@ -80,13 +80,16 @@ class Lesson(models.Model):
     description = models.TextField(verbose_name="คำอธิบายย่อย")
     content = models.TextField(blank=True, default="", verbose_name="เนื้อหาบทเรียนแบบเต็ม")
     diagram_svg = models.TextField(blank=True, default="", verbose_name="ภาพประกอบ (SVG)")
+    chapter = models.PositiveIntegerField(default=1, verbose_name="บทที่ (ตามหนังสือเรียน)")
+    chapter_title = models.CharField(max_length=200, blank=True, default="", verbose_name="ชื่อบทใหญ่")
+    subtopic_code = models.CharField(max_length=10, blank=True, default="", verbose_name="เลขหัวข้อย่อย เช่น 1.1")
     sub_lessons_count = models.PositiveIntegerField(default=1, verbose_name="จำนวนบทเรียนย่อย")
     duration_minutes = models.PositiveIntegerField(default=30, verbose_name="ระยะเวลาเรียน (นาที)")
     order = models.PositiveIntegerField(default=1, verbose_name="ลำดับการแสดงผล")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['grade', 'order']
+        ordering = ['grade', 'chapter', 'subtopic_code', 'order']
 
     def __str__(self):
         return f"[{self.get_grade_display()}] {self.title}"

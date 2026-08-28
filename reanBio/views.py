@@ -1,4 +1,5 @@
 import re
+from itertools import groupby
 
 from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
@@ -132,8 +133,19 @@ def lessons_view(request):
         for lesson in lessons:
             lesson.search_snippet = ""
 
+    # 📌 จัดกลุ่มบทเรียนตาม "บทที่" ของหนังสือเรียน (lessons ถูกเรียงตาม grade, chapter, subtopic_code อยู่แล้วจาก Meta.ordering)
+    chapter_groups = []
+    for (grade, chapter, chapter_title), group_iter in groupby(lessons, key=lambda l: (l.grade, l.chapter, l.chapter_title)):
+        chapter_groups.append({
+            'grade': grade,
+            'chapter': chapter,
+            'chapter_title': chapter_title,
+            'lessons': list(group_iter),
+        })
+
     return render(request, 'reanBio/lessons.html', {
         'lessons': lessons,
+        'chapter_groups': chapter_groups,
         'current_grade': grade_filter,
         'search_query': search_query,
     })
