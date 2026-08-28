@@ -279,11 +279,14 @@ def lesson_detail_view(request, pk):
     search_query = request.GET.get('q', '').strip()
     checkpoints = list(lesson.checkpoints.prefetch_related('choices').all())
     content_html = _render_content_html(lesson.content, search_query, checkpoints)
+    # 📌 คุณครูใช้หน้านี้เพื่ออ่านเนื้อหาเท่านั้น ไม่มีสิทธิ์ทำแบบฝึกหัด/ข้อสอบ (นั่นเป็นของนักเรียน)
+    is_teacher = request.user.is_authenticated and getattr(request.user, 'is_teacher', False)
 
     return render(request, 'reanBio/lesson_detail.html', {
         'lesson': lesson,
         'content_html': content_html,
         'search_query': search_query,
+        'is_teacher': is_teacher,
     })
 
 
@@ -307,6 +310,10 @@ def _grade_text_answer(question, raw_answer):
 def lesson_exercise_view(request, pk):
     """หน้าภาพรวมแบบฝึกหัดของบทเรียนหนึ่งๆ พร้อมประวัติการทำของผู้ใช้ และปุ่มเริ่มทำข้อสอบของทั้งบท"""
     lesson = get_object_or_404(Lesson, pk=pk)
+    # 🛑 คุณครูไม่มีสิทธิ์ทำแบบฝึกหัด/ข้อสอบ (ใช้บทเรียนสำหรับอ่านเนื้อหาเท่านั้น)
+    if getattr(request.user, 'is_teacher', False):
+        messages.info(request, "บทบาทคุณครูใช้สำหรับอ่านเนื้อหาบทเรียนเท่านั้น ไม่มีการทำแบบฝึกหัด/ข้อสอบ")
+        return redirect('lesson_detail', pk=lesson.pk)
     questions = list(lesson.questions.all())
     history = Attempt.objects.filter(
         user=request.user, lesson=lesson, mode='practice', submitted_at__isnull=False
@@ -330,6 +337,9 @@ def lesson_exercise_view(request, pk):
 @login_required
 def start_practice_attempt(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
+    if getattr(request.user, 'is_teacher', False):
+        messages.info(request, "บทบาทคุณครูใช้สำหรับอ่านเนื้อหาบทเรียนเท่านั้น ไม่มีการทำแบบฝึกหัด/ข้อสอบ")
+        return redirect('lesson_detail', pk=lesson.pk)
     questions = list(lesson.questions.all())
     if not questions:
         messages.info(request, "บทเรียนนี้ยังไม่มีแบบฝึกหัด")
@@ -371,6 +381,9 @@ def _create_exam_attempt(user, grade, chapter, num_questions):
 def start_lesson_exam(request, pk):
     """เริ่มทำข้อสอบแบบสุ่มจากคำถามทั้งบท (chapter) ที่บทเรียนนี้สังกัดอยู่ ริเริ่มจากหน้าบทเรียนโดยตรง"""
     lesson = get_object_or_404(Lesson, pk=pk)
+    if getattr(request.user, 'is_teacher', False):
+        messages.info(request, "บทบาทคุณครูใช้สำหรับอ่านเนื้อหาบทเรียนเท่านั้น ไม่มีการทำแบบฝึกหัด/ข้อสอบ")
+        return redirect('lesson_detail', pk=lesson.pk)
     try:
         num_questions = int(request.POST.get('num_questions', 10))
     except ValueError:

@@ -26,10 +26,15 @@
             <a href="{% url 'lessons' %}" class="px-5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition whitespace-nowrap text-center">
                 ⬅️ กลับคลังบทเรียน
             </a>
-            {% if lesson.questions.count %}
+            {% if lesson.questions.count and not is_teacher %}
             <a href="{% url 'lesson_exercise' pk=lesson.pk %}" class="px-5 py-2.5 bg-white text-bio-dark hover:bg-bio-light font-bold rounded-2xl text-xs transition whitespace-nowrap text-center shadow">
                 📝 ทำแบบฝึกหัด ({{ lesson.questions.count }} ข้อ)
             </a>
+            {% endif %}
+            {% if is_teacher %}
+            <span class="px-5 py-2.5 bg-white/15 text-white/80 font-bold rounded-2xl text-xs whitespace-nowrap text-center border border-white/20">
+                👀 โหมดคุณครู · อ่านเนื้อหาเท่านั้น
+            </span>
             {% endif %}
         </div>
     </div>
