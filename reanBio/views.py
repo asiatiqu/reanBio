@@ -313,12 +313,17 @@ def lesson_exercise_view(request, pk):
     ).order_by('-submitted_at')
 
     exam_pool_count = Question.objects.filter(lesson__grade=lesson.grade, lesson__chapter=lesson.chapter).count()
+    # 📌 ประวัติการทำข้อสอบของ "บทที่" เดียวกับบทเรียนนี้ (ข้อสอบสุ่มจากทั้งบท ไม่ผูกกับหัวข้อย่อยเดียว)
+    exam_history = Attempt.objects.filter(
+        user=request.user, mode='exam', grade=lesson.grade, chapter=lesson.chapter, submitted_at__isnull=False
+    ).order_by('-submitted_at')
 
     return render(request, 'reanBio/lesson_exercise.html', {
         'lesson': lesson,
         'question_count': len(questions),
         'history': history,
         'exam_pool_count': exam_pool_count,
+        'exam_history': exam_history,
     })
 
 

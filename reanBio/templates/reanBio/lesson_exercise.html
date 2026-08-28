@@ -102,6 +102,48 @@
             {% endif %}
         </div>
         {% endif %}
+
+        {% if exam_pool_count > 0 %}
+        <div>
+            <h2 class="text-lg font-bold text-bio-dark flex items-center gap-2 border-b pb-3 border-slate-100 mb-4">
+                🎯 ประวัติการทำข้อสอบบทที่ {{ lesson.chapter }}
+            </h2>
+            {% if exam_history %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead>
+                        <tr class="text-slate-400 text-xs uppercase">
+                            <th class="py-2 pr-4">ครั้งที่ทำ</th>
+                            <th class="py-2 pr-4">จำนวนข้อ</th>
+                            <th class="py-2 pr-4">คะแนน</th>
+                            <th class="py-2 pr-4">เปอร์เซ็นต์</th>
+                            <th class="py-2 pr-4"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for attempt in exam_history %}
+                        <tr class="border-t border-slate-100">
+                            <td class="py-2.5 pr-4 text-slate-600">{{ attempt.submitted_at|date:"d/m/Y H:i" }}</td>
+                            <td class="py-2.5 pr-4 text-slate-500">{{ attempt.max_score|floatformat:0 }} ข้อ</td>
+                            <td class="py-2.5 pr-4 font-bold text-bio-dark">{{ attempt.score|floatformat:0 }}/{{ attempt.max_score|floatformat:0 }}</td>
+                            <td class="py-2.5 pr-4">
+                                <span class="px-3 py-1 rounded-full text-xs font-bold {% if attempt.percent >= 80 %}bg-green-100 text-green-700{% elif attempt.percent >= 50 %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-600{% endif %}">
+                                    {{ attempt.percent }}%
+                                </span>
+                            </td>
+                            <td class="py-2.5 pr-4">
+                                <a href="{% url 'attempt_result' attempt_pk=attempt.pk %}" class="text-bio-main font-semibold hover:underline">ดูผล →</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400">ยังไม่มีประวัติการทำข้อสอบบทนี้ ลองเริ่มทำดูได้เลย!</p>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 
 </div>
