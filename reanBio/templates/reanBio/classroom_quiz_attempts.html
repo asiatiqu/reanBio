@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ผลคะแนน - {{ quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-4xl space-y-6">
+
+    <div class="bg-gradient-to-r from-bio-main to-bio-dark text-white p-8 md:p-10 rounded-[35px] shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <span class="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold">{{ quiz.classroom.name }}</span>
+            <h1 class="text-2xl md:text-3xl font-extrabold mt-2">{{ quiz.title }}</h1>
+            <p class="text-sm opacity-90 mt-1">มีผู้ทำแล้ว {{ attempts|length }} คน</p>
+        </div>
+        <a href="{% url 'classroom_quiz_export' quiz_pk=quiz.pk %}" class="px-5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition whitespace-nowrap">
+            ส่งออกเป็น CSV
+        </a>
+    </div>
+
+    {% if attempts %}
+    <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-md overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-bio-light/50 text-left text-xs font-bold text-slate-500">
+                        <th class="px-5 py-3">ชื่อผู้เรียน</th>
+                        <th class="px-5 py-3">คะแนน</th>
+                        <th class="px-5 py-3">เปอร์เซ็นต์</th>
+                        <th class="px-5 py-3">ส่งคำตอบเมื่อ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for attempt in attempts %}
+                    <tr class="border-t border-slate-100">
+                        <td class="px-5 py-3 font-semibold text-bio-dark">{{ attempt.user.first_name|default:attempt.user.username }}</td>
+                        <td class="px-5 py-3 text-slate-600">{{ attempt.score|floatformat:0 }} / {{ attempt.max_score|floatformat:0 }}</td>
+                        <td class="px-5 py-3">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-bold {% if attempt.percent >= 50 %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-600{% endif %}">
+                                {{ attempt.percent }}%
+                            </span>
+                        </td>
+                        <td class="px-5 py-3 text-slate-400 text-xs">{{ attempt.submitted_at|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-[30px] bg-white/40">
+        <p class="font-semibold text-slate-700">ยังไม่มีใครทำแบบทดสอบนี้</p>
+    </div>
+    {% endif %}
+
+    <a href="{% url 'classroom_detail' code=quiz.classroom.code %}" class="block w-full py-3.5 bg-white border-2 border-bio-main text-bio-dark font-bold rounded-2xl text-center text-sm shadow transition hover:bg-bio-light">
+        กลับไปห้องเรียน
+    </a>
+
+</div>
+{% endblock %}

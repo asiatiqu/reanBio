@@ -1,4 +1,5 @@
 import os
+import csv
 import json
 import random
 import re
@@ -504,6 +505,55 @@ def classroom_quiz_result_view(request, attempt_pk):
         .order_by('order')
     )
     return render(request, 'reanBio/classroom_quiz_result.html', {'attempt': attempt, 'answers': answers})
+
+
+@login_required
+def classroom_quiz_attempts_view(request, quiz_pk):
+    """หน้ารายชื่อคนที่ทำแบบทดสอบนี้แล้ว พร้อมคะแนน สำหรับคุณครูตรวจสอบ"""
+    quiz = get_object_or_404(ClassroomQuiz, pk=quiz_pk)
+    if not _can_manage_classroom(request.user, quiz.classroom):
+        return redirect('classroom_detail', code=quiz.classroom.code)
+
+    attempts = (
+        quiz.attempts.filter(submitted_at__isnull=False)
+        .select_related('user')
+        .order_by('-submitted_at')
+    )
+    return render(request, 'reanBio/classroom_quiz_attempts.html', {'quiz': quiz, 'attempts': attempts})
+
+
+@login_required
+def classroom_quiz_export_view(request, quiz_pk):
+    """ส่งออกผลคะแนนของแบบทดสอบนี้เป็นไฟล์ CSV (เปิดหรืออิมพอร์ตเข้า Google Sheets/Excel ได้ทันที)"""
+    quiz = get_object_or_404(ClassroomQuiz, pk=quiz_pk)
+    if not _can_manage_classroom(request.user, quiz.classroom):
+        return redirect('classroom_detail', code=quiz.classroom.code)
+
+    attempts = (
+        quiz.attempts.filter(submitted_at__isnull=False)
+        .select_related('user')
+        .order_by('-submitted_at')
+    )
+
+    safe_title = "".join(c for c in quiz.title if c.isalnum() or c in (" ", "_", "-")).strip() or "quiz"
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="{safe_title}_results.csv"'
+    response.write('﻿')  # BOM ให้โปรแกรมอย่าง Excel อ่านภาษาไทยถูกต้อง
+
+    writer = csv.writer(response)
+    writer.writerow(['ชื่อผู้เรียน', 'ชื่อผู้ใช้', 'คะแนนที่ได้', 'คะแนนเต็ม', 'เปอร์เซ็นต์', 'วันเวลาที่ส่งคำตอบ'])
+    for attempt in attempts:
+        display_name = attempt.user.first_name or attempt.user.username
+        writer.writerow([
+            display_name,
+            attempt.user.username,
+            attempt.score,
+            attempt.max_score,
+            attempt.percent,
+            attempt.submitted_at.strftime('%d/%m/%Y %H:%M'),
+        ])
+    return response
+
 
 @login_required
 def profile(request):

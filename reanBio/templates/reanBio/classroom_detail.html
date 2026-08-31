@@ -97,6 +97,8 @@
                         {% csrf_token %}
                         <button type="submit" class="px-4 py-2 bg-bio-main hover:bg-bio-dark text-white text-xs font-bold rounded-full transition whitespace-nowrap">เริ่มทำ</button>
                     </form>
+                    {% else %}
+                    <a href="{% url 'classroom_quiz_attempts' quiz_pk=quiz.pk %}" class="px-4 py-2 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark text-xs font-bold rounded-full transition whitespace-nowrap">ดูผลคะแนน</a>
                     {% endif %}
                 </div>
                 {% endfor %}
