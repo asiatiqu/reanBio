@@ -129,12 +129,38 @@
             </div>
         </div>
 
-        <!-- 📌 แท็บ: เข้าชมล่าสุด (เตรียมพัฒนาต่อ) -->
+        <!-- 📌 แท็บ: เข้าชมล่าสุด -->
         <div id="tab-panel-recent" class="profile-tab-panel hidden">
+            {% if recent_views %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead>
+                        <tr class="text-slate-400 text-xs uppercase">
+                            <th class="py-2 pr-4">บทเรียน</th>
+                            <th class="py-2 pr-4">ระดับชั้น / บทที่</th>
+                            <th class="py-2 pr-4">เข้าชมล่าสุดเมื่อ</th>
+                            <th class="py-2 pr-4"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for v in recent_views %}
+                        <tr class="border-t border-slate-100">
+                            <td class="py-2.5 pr-4 font-semibold text-slate-700">{{ v.lesson.icon }} {{ v.lesson.title }}</td>
+                            <td class="py-2.5 pr-4 text-slate-500">{{ v.lesson.get_grade_display }} · บทที่ {{ v.lesson.chapter }}</td>
+                            <td class="py-2.5 pr-4 text-slate-500">{{ v.viewed_at|date:"d/m/Y H:i" }}</td>
+                            <td class="py-2.5 pr-4"><a href="{% url 'lesson_detail' pk=v.lesson.pk %}" class="text-bio-main font-semibold hover:underline">เปิดอีกครั้ง →</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
             <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-3">
                 <span class="text-5xl">🕒</span>
-                <p class="font-semibold text-base text-slate-700">เตรียมพบกับประวัติการเข้าชมล่าสุด</p>
+                <p class="font-semibold text-base text-slate-700">ยังไม่มีประวัติการเข้าชมบทเรียน</p>
+                <p class="text-xs text-slate-400">ลองเปิดอ่านบทเรียนสักบทดูก่อนนะ แล้วจะขึ้นตรงนี้ให้เอง</p>
             </div>
+            {% endif %}
         </div>
 
         {% if not request.user.is_teacher %}
@@ -304,14 +330,5 @@
         renderChart('practiceChart', practiceData, '#329632');
         renderChart('examChart', examData, '#287a28');
     }
-
-    // 📌 เปิดแท็บที่ระบุผ่าน query string ได้ทันทีที่โหลดหน้า เช่น profile/?tab=dashboard
-    // (ใช้ตอนกดปุ่ม "ดูแดชบอร์ดสรุปผล" จากหน้าผลข้อสอบ จะได้ไม่ต้องมาคลิกแท็บเองอีกที)
-    (function () {
-        const requestedTab = new URLSearchParams(window.location.search).get('tab');
-        if (requestedTab && document.getElementById('tab-btn-' + requestedTab)) {
-            switchProfileTab(requestedTab);
-        }
-    })();
 </script>
 {% endblock %}

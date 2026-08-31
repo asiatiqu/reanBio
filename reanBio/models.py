@@ -202,3 +202,17 @@ class AttemptAnswer(models.Model):
 
     def __str__(self):
         return f"Attempt#{self.attempt_id} - Q{self.question_id}"
+
+
+# 📌 5. ประวัติการเข้าชมบทเรียน (สำหรับแท็บ "เข้าชมล่าสุด" ในหน้าโปรไฟล์)
+class LessonView(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='lesson_views', verbose_name="ผู้ใช้งาน")
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='views', verbose_name="บทเรียนที่เข้าชม")
+    viewed_at = models.DateTimeField(auto_now=True, verbose_name="เข้าชมล่าสุดเมื่อ")
+
+    class Meta:
+        unique_together = ('user', 'lesson')
+        ordering = ['-viewed_at']
+
+    def __str__(self):
+        return f"{self.user} เข้าชม {self.lesson} ล่าสุดเมื่อ {self.viewed_at}"
