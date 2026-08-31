@@ -6,6 +6,7 @@ import re
 from itertools import groupby
 
 from django.conf import settings
+from django.db import IntegrityError
 from django.db.models import Q
 from django.http import HttpResponse, Http404
 from django.shortcuts import render, redirect, get_object_or_404
@@ -302,10 +303,21 @@ def join_classroom_view(request):
 @login_required
 def classroom_detail_view(request, code):
     classroom = get_object_or_404(Classroom, code=code)
+    quizzes = list(classroom.quizzes.all())
+
+    # 📌 ให้นักเรียนเห็นสถานะการทำแบบทดสอบของตัวเอง (ทำได้คนละครั้งเดียว)
+    if not getattr(request.user, 'is_teacher', False):
+        my_attempts = {
+            a.quiz_id: a for a in
+            ClassroomQuizAttempt.objects.filter(quiz__classroom=classroom, user=request.user)
+        }
+        for quiz in quizzes:
+            quiz.my_attempt = my_attempts.get(quiz.id)
+
     return render(request, 'reanBio/classroom_detail.html', {
         'classroom': classroom,
         'videos': classroom.videos.all(),
-        'quizzes': classroom.quizzes.all(),
+        'quizzes': quizzes,
         'files': classroom.files.all(),
     })
 
@@ -437,23 +449,59 @@ def classroom_add_quiz_view(request, code):
 
 @login_required
 def classroom_quiz_start_view(request, quiz_pk):
+    """หน้ากรอกข้อมูลผู้ทำ (ชื่อ-นามสกุล/ชั้น/เลขที่) ก่อนเริ่มทำแบบทดสอบ
+    ทำได้คนละครั้งเดียวต่อแบบทดสอบหนึ่งชุด: ถ้าเคยเริ่มไว้แล้วให้กลับไปทำต่อ/ดูผลแทนการเริ่มใหม่"""
     quiz = get_object_or_404(ClassroomQuiz, pk=quiz_pk)
     if getattr(request.user, 'is_teacher', False):
         messages.info(request, "บทบาทคุณครูใช้สำหรับสร้างแบบทดสอบเท่านั้น ไม่มีการทำแบบทดสอบ")
         return redirect('classroom_detail', code=quiz.classroom.code)
+
+    existing = ClassroomQuizAttempt.objects.filter(quiz=quiz, user=request.user).first()
+    if existing:
+        if existing.submitted_at:
+            messages.info(request, "คุณทำแบบทดสอบนี้ไปแล้ว ทำได้เพียงครั้งเดียวเท่านั้น")
+            return redirect('classroom_quiz_result', attempt_pk=existing.pk)
+        return redirect('classroom_quiz_take', attempt_pk=existing.pk)
 
     questions = list(quiz.questions.prefetch_related('choices').all())
     if not questions:
         messages.error(request, 'แบบทดสอบนี้ยังไม่มีคำถาม')
         return redirect('classroom_detail', code=quiz.classroom.code)
 
-    attempt = ClassroomQuizAttempt.objects.create(
-        quiz=quiz, user=request.user, max_score=sum(q.points for q in questions),
-    )
-    for i, q in enumerate(questions, start=1):
-        ClassroomQuizAnswer.objects.create(attempt=attempt, question=q, order=i)
+    if request.method == 'POST':
+        student_name = request.POST.get('student_name', '').strip()
+        student_class = request.POST.get('student_class', '').strip()
+        student_number = request.POST.get('student_number', '').strip()
 
-    return redirect('classroom_quiz_take', attempt_pk=attempt.pk)
+        if not student_name or not student_class or not student_number:
+            messages.error(request, 'กรุณากรอกข้อมูลให้ครบทุกช่อง')
+            return render(request, 'reanBio/classroom_quiz_prestart.html', {
+                'quiz': quiz,
+                'student_name': student_name,
+                'student_class': student_class,
+                'student_number': student_number,
+            })
+
+        try:
+            attempt = ClassroomQuizAttempt.objects.create(
+                quiz=quiz, user=request.user, max_score=sum(q.points for q in questions),
+                student_name=student_name, student_class=student_class, student_number=student_number,
+            )
+        except IntegrityError:
+            # 🛑 กันกรณีกดส่งซ้ำ/เปิดสองแท็บพร้อมกันแล้วสร้างซ้ำ (unique_together กันไว้อีกชั้น)
+            existing = ClassroomQuizAttempt.objects.filter(quiz=quiz, user=request.user).first()
+            if existing:
+                if existing.submitted_at:
+                    return redirect('classroom_quiz_result', attempt_pk=existing.pk)
+                return redirect('classroom_quiz_take', attempt_pk=existing.pk)
+            raise
+
+        for i, q in enumerate(questions, start=1):
+            ClassroomQuizAnswer.objects.create(attempt=attempt, question=q, order=i)
+
+        return redirect('classroom_quiz_take', attempt_pk=attempt.pk)
+
+    return render(request, 'reanBio/classroom_quiz_prestart.html', {'quiz': quiz})
 
 
 @login_required
@@ -541,11 +589,13 @@ def classroom_quiz_export_view(request, quiz_pk):
     response.write('﻿')  # BOM ให้โปรแกรมอย่าง Excel อ่านภาษาไทยถูกต้อง
 
     writer = csv.writer(response)
-    writer.writerow(['ชื่อผู้เรียน', 'ชื่อผู้ใช้', 'คะแนนที่ได้', 'คะแนนเต็ม', 'เปอร์เซ็นต์', 'วันเวลาที่ส่งคำตอบ'])
+    writer.writerow(['ชื่อ-นามสกุล', 'ชั้น', 'เลขที่', 'ชื่อผู้ใช้', 'คะแนนที่ได้', 'คะแนนเต็ม', 'เปอร์เซ็นต์', 'วันเวลาที่ส่งคำตอบ'])
     for attempt in attempts:
-        display_name = attempt.user.first_name or attempt.user.username
+        display_name = attempt.student_name or attempt.user.first_name or attempt.user.username
         writer.writerow([
             display_name,
+            attempt.student_class,
+            attempt.student_number,
             attempt.user.username,
             attempt.score,
             attempt.max_score,

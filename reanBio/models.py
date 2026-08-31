@@ -316,6 +316,10 @@ class ClassroomQuizChoice(models.Model):
 class ClassroomQuizAttempt(models.Model):
     quiz = models.ForeignKey(ClassroomQuiz, on_delete=models.CASCADE, related_name='attempts', verbose_name="แบบทดสอบ")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='classroom_quiz_attempts', verbose_name="ผู้ทำ")
+    # 📌 ข้อมูลที่นักเรียนกรอกเองก่อนเริ่มทำ ใช้แยกตัวตนผู้ทำให้ชัดเจน (เผื่อบัญชีเดียวใช้กันหลายคน หรือครูต้องการเทียบกับรายชื่อจริง)
+    student_name = models.CharField(max_length=200, blank=True, default="", verbose_name="ชื่อ-นามสกุล")
+    student_class = models.CharField(max_length=50, blank=True, default="", verbose_name="ชั้น")
+    student_number = models.CharField(max_length=10, blank=True, default="", verbose_name="เลขที่")
     score = models.FloatField(default=0, verbose_name="คะแนนที่ได้")
     max_score = models.FloatField(default=0, verbose_name="คะแนนเต็ม")
     started_at = models.DateTimeField(auto_now_add=True)
@@ -323,6 +327,8 @@ class ClassroomQuizAttempt(models.Model):
 
     class Meta:
         ordering = ['-started_at']
+        # 📌 ทำได้คนละครั้งเดียวต่อแบบทดสอบหนึ่งชุด (กันการเข้ามาทำซ้ำ)
+        unique_together = ('quiz', 'user')
 
     def __str__(self):
         return f"{self.user} - {self.quiz} ({self.score}/{self.max_score})"

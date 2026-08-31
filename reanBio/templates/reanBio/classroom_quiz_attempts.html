@@ -23,7 +23,9 @@
             <table class="w-full text-sm">
                 <thead>
                     <tr class="bg-bio-light/50 text-left text-xs font-bold text-slate-500">
-                        <th class="px-5 py-3">ชื่อผู้เรียน</th>
+                        <th class="px-5 py-3">ชื่อ-นามสกุล</th>
+                        <th class="px-5 py-3">ชั้น</th>
+                        <th class="px-5 py-3">เลขที่</th>
                         <th class="px-5 py-3">คะแนน</th>
                         <th class="px-5 py-3">เปอร์เซ็นต์</th>
                         <th class="px-5 py-3">ส่งคำตอบเมื่อ</th>
@@ -32,7 +34,9 @@
                 <tbody>
                     {% for attempt in attempts %}
                     <tr class="border-t border-slate-100">
-                        <td class="px-5 py-3 font-semibold text-bio-dark">{{ attempt.user.first_name|default:attempt.user.username }}</td>
+                        <td class="px-5 py-3 font-semibold text-bio-dark">{{ attempt.student_name|default:attempt.user.first_name|default:attempt.user.username }}</td>
+                        <td class="px-5 py-3 text-slate-600">{{ attempt.student_class|default:"-" }}</td>
+                        <td class="px-5 py-3 text-slate-600">{{ attempt.student_number|default:"-" }}</td>
                         <td class="px-5 py-3 text-slate-600">{{ attempt.score|floatformat:0 }} / {{ attempt.max_score|floatformat:0 }}</td>
                         <td class="px-5 py-3">
                             <span class="px-2.5 py-1 rounded-full text-xs font-bold {% if attempt.percent >= 50 %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-600{% endif %}">

@@ -93,10 +93,13 @@
                         <p class="text-xs text-slate-400">{{ quiz.question_count }} ข้อ</p>
                     </div>
                     {% if not request.user.is_teacher %}
-                    <form method="post" action="{% url 'classroom_quiz_start' quiz_pk=quiz.pk %}">
-                        {% csrf_token %}
-                        <button type="submit" class="px-4 py-2 bg-bio-main hover:bg-bio-dark text-white text-xs font-bold rounded-full transition whitespace-nowrap">เริ่มทำ</button>
-                    </form>
+                        {% if quiz.my_attempt and quiz.my_attempt.submitted_at %}
+                        <a href="{% url 'classroom_quiz_result' attempt_pk=quiz.my_attempt.pk %}" class="px-4 py-2 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark text-xs font-bold rounded-full transition whitespace-nowrap">ดูผลคะแนนของฉัน</a>
+                        {% elif quiz.my_attempt %}
+                        <a href="{% url 'classroom_quiz_take' attempt_pk=quiz.my_attempt.pk %}" class="px-4 py-2 bg-bio-main hover:bg-bio-dark text-white text-xs font-bold rounded-full transition whitespace-nowrap">ทำต่อ</a>
+                        {% else %}
+                        <a href="{% url 'classroom_quiz_start' quiz_pk=quiz.pk %}" class="px-4 py-2 bg-bio-main hover:bg-bio-dark text-white text-xs font-bold rounded-full transition whitespace-nowrap">เริ่มทำ</a>
+                        {% endif %}
                     {% else %}
                     <a href="{% url 'classroom_quiz_attempts' quiz_pk=quiz.pk %}" class="px-4 py-2 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark text-xs font-bold rounded-full transition whitespace-nowrap">ดูผลคะแนน</a>
                     {% endif %}
