@@ -1,5 +1,7 @@
 // 📌 สื่อ 3D Interactive: ระดับการจัดระบบของสิ่งมีชีวิต (โมเลกุล → เซลล์ → เนื้อเยื่อ → อวัยวะ → ระบบอวัยวะ → สิ่งมีชีวิต)
-// สร้างจาก Three.js ล้วน ๆ ด้วยรูปทรงพื้นฐาน (sphere/cylinder/torus) ไม่ต้องพึ่งไฟล์โมเดล 3D ภายนอก
+// สร้างจาก Three.js ล้วน ๆ ด้วยรูปทรงพื้นฐาน (sphere/cylinder/capsule) ไม่ต้องพึ่งไฟล์โมเดล 3D ภายนอก
+// แสดงทั้ง 6 ระดับพร้อมกันเป็น "โครงสร้างเดียว" จัดเรียงเป็นเส้นทางซิกแซก แล้วกดที่ชิ้นส่วนไหนในโมเดล
+// (หรือกดปุ่มด้านล่าง) จะเด้งบอกว่าส่วนนั้นคือระดับอะไร — ใช้ raycaster ของ Three.js จับการคลิกบนโมเดลจริง
 // ใช้ ES modules (import three.module.min.js ที่ vendor ไว้ในเครื่อง) + OrbitControls ให้หมุน/ซูมด้วยเมาส์ได้
 
 import * as THREE from 'three';
@@ -57,10 +59,10 @@ function makeAtom(radius, color) {
     return new THREE.Mesh(geo, mat);
 }
 
-function makeBond(from, to, color = 0xcccccc) {
+function makeBond(from, to, color = 0xcccccc, radius = 0.05) {
     const dir = new THREE.Vector3().subVectors(to, from);
     const len = dir.length();
-    const geo = new THREE.CylinderGeometry(0.05, 0.05, len, 8);
+    const geo = new THREE.CylinderGeometry(radius, radius, len, 8);
     const mat = new THREE.MeshStandardMaterial({ color });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.copy(from).add(to).multiplyScalar(0.5);
@@ -205,7 +207,27 @@ function buildOrganism() {
 
 const BUILDERS = [buildMolecule, buildSingleCell, buildTissue, buildOrgan, buildOrganSystem, buildOrganism];
 
-export function initOrganizationScene(container) {
+// ตำแหน่งจัดวางทั้ง 6 ระดับพร้อมกันเป็นเส้นทางซิกแซก (S-shape): แถวบนไล่ซ้าย→ขวา แล้ววกลงแถวล่างขวา→ซ้าย
+// ให้เห็นการไล่ระดับจากเล็กไปใหญ่ในภาพเดียวกันทั้งหมด แทนการสลับทีละระดับแบบเดิม
+const SLOT_LAYOUT = [
+    { x: -6.4, y: 2.6 },  // 0 โมเลกุล
+    { x: 0, y: 2.6 },     // 1 เซลล์
+    { x: 6.4, y: 2.6 },   // 2 เนื้อเยื่อ
+    { x: 6.4, y: -2.6 },  // 3 อวัยวะ
+    { x: 0, y: -2.6 },    // 4 ระบบอวัยวะ
+    { x: -6.4, y: -2.6 }, // 5 สิ่งมีชีวิต
+];
+const SLOT_SCALE = [0.85, 0.85, 0.62, 0.8, 0.46, 0.55];
+
+function makeConnector(a, b) {
+    const from = new THREE.Vector3(a.x, a.y, 0);
+    const to = new THREE.Vector3(b.x, b.y, 0);
+    return makeBond(from, to, 0xd8c7a1, 0.09);
+}
+
+export function initOrganizationScene(container, options = {}) {
+    const { onSelect } = options;
+
     // กันไว้เผื่อ container ยังไม่มีขนาด (เช่น CSS ยังโหลดไม่เสร็จ) จะได้ไม่วาดฉากขนาด 0x0
     const width = container.clientWidth || 600;
     const height = container.clientHeight || 320;
@@ -214,51 +236,129 @@ export function initOrganizationScene(container) {
     scene.background = null;
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(3.2, 2, 4.2);
+    camera.position.set(0, 1.2, 13);
+    camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
+    renderer.domElement.style.display = 'block';
+    renderer.domElement.style.cursor = 'grab';
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
-    controls.minDistance = 2;
-    controls.maxDistance = 12;
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 1.4;
+    controls.minDistance = 6;
+    controls.maxDistance = 26;
+    controls.target.set(0, 0, 0);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.75));
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
-    dirLight.position.set(4, 6, 5);
+    dirLight.position.set(4, 6, 8);
     scene.add(dirLight);
     const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
-    fillLight.position.set(-4, -2, -5);
+    fillLight.position.set(-4, -2, -6);
     scene.add(fillLight);
 
-    const levelGroups = BUILDERS.map((build) => {
-        const g = build();
-        g.visible = false;
-        scene.add(g);
-        return g;
+    // เส้นเชื่อมลำดับ 0→1→2→3→4→5 ให้เห็นการไล่ระดับเป็นเส้นทางเดียว
+    for (let i = 0; i < SLOT_LAYOUT.length - 1; i++) {
+        scene.add(makeConnector(SLOT_LAYOUT[i], SLOT_LAYOUT[i + 1]));
+    }
+
+    const slots = BUILDERS.map((build, i) => {
+        const slot = new THREE.Group();
+        slot.position.set(SLOT_LAYOUT[i].x, SLOT_LAYOUT[i].y, 0);
+        slot.userData.levelIndex = i;
+        slot.scale.setScalar(SLOT_SCALE[i]);
+        slot.add(build());
+        scene.add(slot);
+        return slot;
     });
 
-    let currentIndex = 0;
-    function showLevel(index) {
-        currentIndex = ((index % levelGroups.length) + levelGroups.length) % levelGroups.length;
-        levelGroups.forEach((g, i) => { g.visible = i === currentIndex; });
-        controls.autoRotate = true;
-        return ORGANIZATION_LEVELS[currentIndex];
+    function findLevelIndex(obj) {
+        let o = obj;
+        while (o) {
+            if (o.userData && o.userData.levelIndex !== undefined) return o.userData.levelIndex;
+            o = o.parent;
+        }
+        return null;
     }
-    showLevel(0);
+
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let hoveredIndex = null;
+    let pulseIndex = null;
+    let pulseT = 0;
+
+    function setPointerFromEvent(event) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    }
+
+    function pickIndex() {
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObjects(scene.children, true);
+        for (const hit of hits) {
+            const idx = findLevelIndex(hit.object);
+            if (idx !== null) return idx;
+        }
+        return null;
+    }
+
+    function screenPosOfSlot(index) {
+        const v = new THREE.Vector3();
+        slots[index].getWorldPosition(v);
+        v.project(camera);
+        const rect = renderer.domElement.getBoundingClientRect();
+        return {
+            x: (v.x * 0.5 + 0.5) * rect.width,
+            y: (-v.y * 0.5 + 0.5) * rect.height,
+        };
+    }
+
+    function triggerSelect(index, screenPos) {
+        pulseIndex = index;
+        pulseT = 0;
+        if (onSelect) onSelect(ORGANIZATION_LEVELS[index], index, screenPos || screenPosOfSlot(index));
+    }
+
+    function handleClick(event) {
+        const localPos = setPointerFromEvent(event);
+        const idx = pickIndex();
+        if (idx !== null) triggerSelect(idx, localPos);
+    }
+
+    function handlePointerMove(event) {
+        setPointerFromEvent(event);
+        const idx = pickIndex();
+        renderer.domElement.style.cursor = idx !== null ? 'pointer' : 'grab';
+        hoveredIndex = idx;
+    }
+
+    renderer.domElement.addEventListener('click', handleClick);
+    renderer.domElement.addEventListener('pointermove', handlePointerMove);
 
     let rafId;
+    const _tmpScale = new THREE.Vector3();
     function animate() {
         rafId = requestAnimationFrame(animate);
-        const active = levelGroups[currentIndex];
-        if (active) active.rotation.y += 0.0015;
+        slots.forEach((slot, i) => {
+            slot.children[0].rotation.y += 0.004;
+            let targetScale = SLOT_SCALE[i];
+            if (pulseIndex === i) {
+                pulseT += 0.06;
+                targetScale = SLOT_SCALE[i] * (1 + 0.25 * Math.max(0, Math.sin(Math.min(pulseT, Math.PI))));
+                if (pulseT >= Math.PI) pulseIndex = null;
+            } else if (hoveredIndex === i) {
+                targetScale = SLOT_SCALE[i] * 1.12;
+            }
+            _tmpScale.setScalar(targetScale);
+            slot.scale.lerp(_tmpScale, 0.25);
+        });
         controls.update();
         renderer.render(scene, camera);
     }
@@ -267,6 +367,7 @@ export function initOrganizationScene(container) {
     function handleResize() {
         const w = container.clientWidth;
         const h = container.clientHeight;
+        if (!w || !h) return;
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
         renderer.setSize(w, h);
@@ -274,11 +375,14 @@ export function initOrganizationScene(container) {
     window.addEventListener('resize', handleResize);
 
     return {
-        showLevel,
-        getCurrentIndex: () => currentIndex,
+        selectLevel(index) {
+            triggerSelect(index);
+        },
         destroy() {
             cancelAnimationFrame(rafId);
             window.removeEventListener('resize', handleResize);
+            renderer.domElement.removeEventListener('click', handleClick);
+            renderer.domElement.removeEventListener('pointermove', handlePointerMove);
             renderer.dispose();
         },
     };

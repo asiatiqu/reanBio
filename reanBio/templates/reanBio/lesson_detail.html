@@ -102,10 +102,10 @@
                     <h3 class="font-bold text-bio-dark text-sm flex items-center gap-2">
                         🧫 สื่อ 3D Interactive: ระดับการจัดระบบของสิ่งมีชีวิต
                     </h3>
-                    <span class="text-xs text-slate-400">ลากเมาส์เพื่อหมุน · เลื่อนล้อเพื่อซูม</span>
+                    <span class="text-xs text-slate-400">ลากเมาส์เพื่อหมุน · เลื่อนล้อเพื่อซูม · กดที่ชิ้นส่วนเพื่อดูรายละเอียด</span>
                 </div>
 
-                <div id="org3d-canvas" class="w-full h-72 md:h-96 rounded-2xl bg-gradient-to-br from-bio-light/40 to-white border border-bio-light overflow-hidden" style="min-height:280px"></div>
+                <div id="org3d-canvas" class="w-full h-72 md:h-96 rounded-2xl bg-gradient-to-br from-bio-light/40 to-white border border-bio-light overflow-hidden" style="min-height:280px; position:relative;"></div>
 
                 <div class="flex flex-wrap gap-2 justify-center" id="org3d-level-buttons"></div>
 
@@ -148,30 +148,74 @@
         descEl.textContent = level.desc;
     }
 
+    function setActiveButton(index) {
+        [...buttonsWrap.children].forEach((b, i) => {
+            b.className = 'org3d-level-btn px-3 py-1.5 rounded-full text-xs font-bold border transition ' +
+                (i === index ? 'bg-bio-main text-white border-bio-main' : 'bg-white text-bio-dark border-bio-light hover:bg-bio-light/60');
+        });
+    }
+
     function renderButtons(scene) {
         buttonsWrap.innerHTML = '';
         ORGANIZATION_LEVELS.forEach((level, i) => {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.textContent = `${level.icon} ${level.name.split(' ')[0]}`;
-            btn.className = 'org3d-level-btn px-3 py-1.5 rounded-full text-xs font-bold border transition ' +
-                (i === scene.getCurrentIndex() ? 'bg-bio-main text-white border-bio-main' : 'bg-white text-bio-dark border-bio-light hover:bg-bio-light/60');
-            btn.addEventListener('click', () => {
-                const level = scene.showLevel(i);
-                updateCaption(level);
-                [...buttonsWrap.children].forEach((b, bi) => {
-                    b.className = 'org3d-level-btn px-3 py-1.5 rounded-full text-xs font-bold border transition ' +
-                        (bi === i ? 'bg-bio-main text-white border-bio-main' : 'bg-white text-bio-dark border-bio-light hover:bg-bio-light/60');
-                });
-            });
+            btn.className = 'org3d-level-btn px-3 py-1.5 rounded-full text-xs font-bold border transition bg-white text-bio-dark border-bio-light hover:bg-bio-light/60';
+            btn.addEventListener('click', () => scene.selectLevel(i));
             buttonsWrap.appendChild(btn);
         });
     }
 
     if (container) {
-        const scene = initOrganizationScene(container);
+        // กล่องข้อความเด้งบอกรายละเอียด แสดงตรงจุดที่กด (แนบไว้ในกล่อง canvas เอง)
+        const tooltip = document.createElement('div');
+        tooltip.id = 'org3d-tooltip';
+        tooltip.className = 'shadow-xl rounded-2xl text-left';
+        // กำหนด position/ขนาด/สีด้วย inline style โดยตรง (ไม่พึ่ง Tailwind utility class ล้วนๆ)
+        // เผื่อกรณี CDN ของ Tailwind โหลดไม่ทันตอน popup นี้เด้งขึ้นครั้งแรก จะได้ยังวางตำแหน่ง/มองเห็นได้ถูกต้อง
+        tooltip.style.cssText = 'position:absolute; z-index:20; width:210px; max-width:70%; ' +
+            'background:#ffffff; border:1px solid #cdeccd; border-radius:16px; padding:10px 12px; ' +
+            'opacity:0; pointer-events:none; transition:opacity .15s ease; text-align:left;';
+        tooltip.style.transform = 'translate(-50%, -110%)';
+
+        function showTooltip(level, pos) {
+            tooltip.innerHTML = `<p class="font-bold text-bio-dark text-xs">${level.icon} ${level.name}</p><p class="text-[11px] text-slate-500 mt-1 leading-relaxed">${level.desc}</p>`;
+            const w = container.clientWidth || 600;
+            const h = container.clientHeight || 320;
+            const tw = tooltip.offsetWidth || 208;
+            const th = tooltip.offsetHeight || 90;
+
+            // แสดงเหนือจุดที่กดถ้ามีที่ว่างพอ ไม่งั้นสลับไปแสดงใต้จุดที่กดแทน กันโดนตัดขอบบน/ล่างของกล่อง canvas
+            const showAbove = pos.y - th - 12 >= 0;
+            tooltip.style.transform = showAbove ? 'translate(-50%, -110%)' : 'translate(-50%, 10%)';
+            const clampedX = Math.min(Math.max(pos.x, tw / 2 + 8), w - tw / 2 - 8);
+            const clampedY = showAbove ? pos.y : Math.min(pos.y, h - th - 10);
+            tooltip.style.left = `${clampedX}px`;
+            tooltip.style.top = `${Math.max(clampedY, 0)}px`;
+            tooltip.style.opacity = '1';
+        }
+
+        const scene = initOrganizationScene(container, {
+            onSelect: (level, index, screenPos) => {
+                showTooltip(level, screenPos);
+                updateCaption(level);
+                setActiveButton(index);
+            },
+        });
+
+        container.appendChild(tooltip);
         renderButtons(scene);
-        updateCaption(ORGANIZATION_LEVELS[scene.getCurrentIndex()]);
+
+        nameEl.textContent = '👆 กดที่ชิ้นส่วนในโมเดล หรือกดปุ่มด้านล่าง';
+        descEl.textContent = 'เพื่อดูว่าแต่ละส่วนคือระดับการจัดระบบใดของสิ่งมีชีวิต';
+
+        document.addEventListener('click', (e) => {
+            // อย่าซ่อน popup เพราะกดปุ่มเลือกระดับ (ปุ่มอยู่นอกกล่อง canvas แต่ก็ควรเปิด popup ได้เหมือนกัน)
+            if (!container.contains(e.target) && !buttonsWrap.contains(e.target)) {
+                tooltip.style.opacity = '0';
+            }
+        });
     }
 </script>
 {% endif %}
