@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}สร้างแบบทดสอบ - reanBio{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-2xl flex flex-col gap-6">
+
+    <div class="bg-gradient-to-r from-bio-main to-bio-dark text-white p-8 md:p-10 rounded-[35px] shadow-lg">
+        <h1 class="text-2xl md:text-3xl font-extrabold">สร้างแบบทดสอบอัตโนมัติ</h1>
+        <p class="text-sm opacity-90 mt-2">เลือกระดับชั้นและบทที่ที่ต้องการ ระบบจะสุ่มคำถามจากคลังข้อสอบทุกบทเรียนที่ตรงเงื่อนไขให้ทันที
+            ({{ total_questions }} ข้อในคลังทั้งหมด) คะแนนจะถูกเก็บในแดชบอร์ดของคุณเหมือนข้อสอบทั่วไป</p>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="p-4 rounded-2xl text-sm font-bold text-center {% if message.tags == 'error' %}bg-rose-100 text-rose-700{% else %}bg-emerald-100 text-emerald-800{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="bg-white/95 backdrop-blur-md rounded-[35px] border border-white shadow-lg p-8 md:p-10">
+        {% if request.user.is_authenticated and not request.user.is_teacher %}
+        <form method="post" action="{% url 'start_generated_quiz' %}" class="space-y-5">
+            {% csrf_token %}
+
+            <div class="space-y-1.5">
+                <label class="block text-sm font-semibold text-bio-dark">ระดับชั้น</label>
+                <select name="grade" id="qg-grade" onchange="qgUpdateChapters()"
+                    class="w-full px-4 py-3 bg-bio-light/50 border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main">
+                    <option value="all">ทุกระดับชั้น</option>
+                    <option value="m4">ม.4</option>
+                    <option value="m5">ม.5</option>
+                    <option value="m6">ม.6</option>
+                </select>
+            </div>
+
+            <div class="space-y-1.5">
+                <label class="block text-sm font-semibold text-bio-dark">บทที่</label>
+                <select name="chapter" id="qg-chapter"
+                    class="w-full px-4 py-3 bg-bio-light/50 border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main">
+                    <option value="">ทุกบทที่</option>
+                </select>
+            </div>
+
+            <div class="space-y-1.5">
+                <label class="block text-sm font-semibold text-bio-dark">จำนวนข้อ</label>
+                <select name="num_questions"
+                    class="w-full px-4 py-3 bg-bio-light/50 border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main">
+                    <option value="5">5 ข้อ</option>
+                    <option value="10" selected>10 ข้อ</option>
+                    <option value="15">15 ข้อ</option>
+                    <option value="20">20 ข้อ</option>
+                    <option value="30">30 ข้อ</option>
+                </select>
+            </div>
+
+            <button type="submit" class="w-full py-4 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-center text-sm shadow transition">
+                สร้างแบบทดสอบและเริ่มทำเลย
+            </button>
+        </form>
+
+        <script>
+            const qgChaptersByGrade = {{ chapters_by_grade_json|safe }};
+
+            function qgUpdateChapters() {
+                const grade = document.getElementById('qg-grade').value;
+                const select = document.getElementById('qg-chapter');
+                let chapters;
+                if (grade === 'all') {
+                    const seen = new Set();
+                    chapters = [];
+                    Object.values(qgChaptersByGrade).forEach(list => list.forEach(c => {
+                        if (!seen.has(c)) { seen.add(c); chapters.push(c); }
+                    }));
+                    chapters.sort((a, b) => a - b);
+                } else {
+                    chapters = qgChaptersByGrade[grade] || [];
+                }
+                select.innerHTML = '<option value="">ทุกบทที่</option>' +
+                    chapters.map(c => `<option value="${c}">บทที่ ${c}</option>`).join('');
+            }
+
+            qgUpdateChapters();
+        </script>
+        {% elif request.user.is_authenticated and request.user.is_teacher %}
+        <div class="py-10 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl">
+            <p class="font-semibold text-base text-slate-700">บทบาทคุณครูใช้สำหรับอ่านเนื้อหาบทเรียนเท่านั้น</p>
+            <p class="text-xs text-slate-400 mt-1">ระบบสร้างแบบทดสอบนี้สำหรับบัญชีนักเรียนเท่านั้น</p>
+        </div>
+        {% else %}
+        <div class="py-10 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl space-y-3">
+            <p class="font-semibold text-base text-slate-700">เข้าสู่ระบบเพื่อสร้างแบบทดสอบและเก็บคะแนนไว้ในแดชบอร์ดของคุณ</p>
+            <a href="{% url 'login' %}?next={% url 'quiz_generator' %}"
+                class="inline-block mt-2 px-5 py-2.5 bg-bio-main hover:bg-bio-dark text-white font-bold text-sm rounded-2xl transition shadow-sm">
+                เข้าสู่ระบบ
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

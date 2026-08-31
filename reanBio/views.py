@@ -1,4 +1,5 @@
 import os
+import json
 import random
 import re
 from itertools import groupby
@@ -39,7 +40,7 @@ def _render_checkpoint_html(checkpoint):
     explanation_html = f'<p class="text-xs text-slate-500 mt-2">{escape(checkpoint.explanation)}</p>' if checkpoint.explanation else ""
     return f'''
     <div class="checkpoint-quiz not-prose my-4 p-5 bg-bio-light/50 border-2 border-dashed border-bio-main/30 rounded-2xl" data-cp-id="{checkpoint.pk}">
-        <p class="font-bold text-bio-dark text-sm mb-3">🧠 ลองตรวจสอบความเข้าใจ: {escape(checkpoint.text)}</p>
+        <p class="font-bold text-bio-dark text-sm mb-3">ลองตรวจสอบความเข้าใจ: {escape(checkpoint.text)}</p>
         <div class="space-y-1.5">{choices_html}</div>
         <button type="button" onclick="checkCheckpoint({checkpoint.pk})"
             class="mt-3 px-5 py-2 bg-bio-main hover:bg-bio-dark text-white text-xs font-bold rounded-full transition">
@@ -188,6 +189,63 @@ def lessons_view(request):
         'current_grade': grade_filter,
         'search_query': search_query,
     })
+
+
+def _chapters_by_grade():
+    """คืนค่า dict {grade: [เลขบทที่ทั้งหมดของ grade นั้น]} ใช้ในฟอร์มกรอง/สร้างแบบทดสอบ"""
+    mapping = {}
+    for grade, chapter in Lesson.objects.values_list('grade', 'chapter').distinct().order_by('grade', 'chapter'):
+        mapping.setdefault(grade, []).append(chapter)
+    return mapping
+
+
+# ============================================================
+# 📌 การ์ดคำศัพท์แบบพลิกดู (Interactive Flashcards)
+# ============================================================
+def flashcards_view(request):
+    """สุ่มการ์ดคำศัพท์จากคลังคำถามของบทเรียน ให้พลิกดูหน้า-หลังเพื่อทบทวนความรู้
+    (ไม่เก็บคะแนน ไม่ต้องเข้าสู่ระบบ) กรองตามระดับชั้น/บทที่ได้"""
+    grade_filter = request.GET.get('grade', 'all')
+    chapter_filter = request.GET.get('chapter', '').strip()
+
+    questions = Question.objects.select_related('lesson').prefetch_related('choices')
+    if grade_filter in ['m4', 'm5', 'm6']:
+        questions = questions.filter(lesson__grade=grade_filter)
+    if chapter_filter.isdigit():
+        questions = questions.filter(lesson__chapter=int(chapter_filter))
+
+    questions = list(questions)
+    random.shuffle(questions)
+    questions = questions[:60]  # จำกัดจำนวนการ์ดต่อรอบไม่ให้เยอะเกินไป
+
+    cards = []
+    for q in questions:
+        if q.question_type == 'mcq':
+            back = next((c.text for c in q.choices.all() if c.is_correct), '')
+        else:
+            back = (q.accepted_answers or [''])[0]
+        if q.explanation:
+            back = f"{back}\n\n{q.explanation}" if back else q.explanation
+        cards.append({
+            'front': q.text,
+            'back': back or 'ยังไม่มีเฉลยสำหรับข้อนี้',
+            'lesson': f"{q.lesson.subtopic_code} {q.lesson.title}".strip(),
+        })
+
+    chapters_by_grade = _chapters_by_grade()
+    if grade_filter in chapters_by_grade:
+        available_chapters = chapters_by_grade[grade_filter]
+    else:
+        available_chapters = sorted({c for chapters in chapters_by_grade.values() for c in chapters})
+
+    return render(request, 'reanBio/flashcards.html', {
+        'cards_json': json.dumps(cards, ensure_ascii=False),
+        'card_count': len(cards),
+        'current_grade': grade_filter,
+        'current_chapter': chapter_filter,
+        'available_chapters': available_chapters,
+    })
+
 
 @login_required
 def profile(request):
@@ -397,6 +455,67 @@ def start_lesson_exam(request, pk):
     if attempt is None:
         messages.error(request, "หัวข้อนี้ยังไม่มีคำถามในคลังข้อสอบ")
         return redirect('lesson_exercise', pk=lesson.pk)
+
+    return redirect('attempt_take', attempt_pk=attempt.pk)
+
+
+# ============================================================
+# 📌 ควิซอัจฉริยะ (AI Quiz Generator): สุ่มข้อสอบข้ามบทเรียน ตามระดับชั้น/บทที่ที่เลือก
+# ============================================================
+def _create_multi_lesson_exam_attempt(user, grade, chapter, num_questions):
+    """สุ่มคำถามข้ามบทเรียนตามเงื่อนไขระดับชั้น/บทที่ที่เลือก แล้วสร้าง Attempt แบบข้อสอบรวม
+    (ไม่ผูกกับบทเรียนเดียว lesson=None) คืนค่า Attempt หรือ None ถ้าไม่พบคำถามในขอบเขตที่เลือก"""
+    pool = Question.objects.select_related('lesson')
+    if grade in ['m4', 'm5', 'm6']:
+        pool = pool.filter(lesson__grade=grade)
+    if chapter:
+        pool = pool.filter(lesson__chapter=chapter)
+    pool = list(pool)
+    if not pool:
+        return None
+
+    num_questions = max(1, min(num_questions, len(pool)))
+    selected = random.sample(pool, num_questions)
+
+    attempt = Attempt.objects.create(
+        user=user, mode='exam',
+        grade=grade if grade in ['m4', 'm5', 'm6'] else '',
+        chapter=chapter,
+        max_score=sum(q.points for q in selected),
+    )
+    for i, q in enumerate(selected, start=1):
+        AttemptAnswer.objects.create(attempt=attempt, question=q, order=i)
+    return attempt
+
+
+def quiz_generator_view(request):
+    """หน้าตั้งค่าสร้างแบบทดสอบอัตโนมัติ: เลือกระดับชั้น/บทที่/จำนวนข้อ แล้วสุ่มคำถามข้ามบทเรียนให้ทันที"""
+    return render(request, 'reanBio/quiz_generator.html', {
+        'chapters_by_grade_json': json.dumps(_chapters_by_grade()),
+        'total_questions': Question.objects.count(),
+    })
+
+
+@login_required
+def start_generated_quiz(request):
+    if request.method != 'POST':
+        return redirect('quiz_generator')
+    if getattr(request.user, 'is_teacher', False):
+        messages.info(request, "บทบาทคุณครูใช้สำหรับอ่านเนื้อหาบทเรียนเท่านั้น ไม่มีการทำแบบฝึกหัด/ข้อสอบ")
+        return redirect('quiz_generator')
+
+    grade = request.POST.get('grade', 'all')
+    chapter_raw = request.POST.get('chapter', '').strip()
+    chapter = int(chapter_raw) if chapter_raw.isdigit() else None
+    try:
+        num_questions = int(request.POST.get('num_questions', 10))
+    except ValueError:
+        num_questions = 10
+
+    attempt = _create_multi_lesson_exam_attempt(request.user, grade, chapter, num_questions)
+    if attempt is None:
+        messages.error(request, "ไม่พบคำถามในขอบเขตที่เลือก กรุณาเลือกระดับชั้น/บทที่ใหม่")
+        return redirect('quiz_generator')
 
     return redirect('attempt_take', attempt_pk=attempt.pk)
 
