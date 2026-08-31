@@ -50,12 +50,14 @@
                 <button type="button" onclick="switchProfileTab('classrooms')" id="tab-btn-classrooms" class="profile-tab-btn pb-3 border-b-2 border-bio-main text-bio-dark whitespace-nowrap">
                     {% if request.user.is_teacher %}ห้องเรียนที่ฉันสอน{% else %}ห้องเรียนของฉัน{% endif %}
                 </button>
+                {% if not request.user.is_teacher %}
                 <button type="button" onclick="switchProfileTab('videos')" id="tab-btn-videos" class="profile-tab-btn pb-3 border-b-2 border-transparent hover:text-bio-dark transition whitespace-nowrap">
                     วิดีโอที่เรียน
                 </button>
                 <button type="button" onclick="switchProfileTab('recent')" id="tab-btn-recent" class="profile-tab-btn pb-3 border-b-2 border-transparent hover:text-bio-dark transition whitespace-nowrap">
                     เข้าชมล่าสุด
                 </button>
+                {% endif %}
 
                 {% if request.user.is_teacher %}
                 <a href="{% url 'teacher_dashboard' %}" class="pb-3 border-b-2 border-transparent hover:text-bio-dark transition whitespace-nowrap text-slate-500">
@@ -121,6 +123,7 @@
             {% endif %}
         </div>
 
+        {% if not request.user.is_teacher %}
         <!-- 📌 แท็บ: วิดีโอที่เรียน (เตรียมพัฒนาต่อ) -->
         <div id="tab-panel-videos" class="profile-tab-panel hidden">
             <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-3">
@@ -162,6 +165,7 @@
             </div>
             {% endif %}
         </div>
+        {% endif %}
 
         {% if not request.user.is_teacher %}
         <!-- 📌 แท็บ: แดชบอร์ดผลการเรียน (คะแนนแบบฝึกหัด/ข้อสอบ) -->
