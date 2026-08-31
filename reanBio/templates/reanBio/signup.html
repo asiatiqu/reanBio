@@ -13,7 +13,7 @@
                 class="h-16 w-auto mx-auto object-contain">
         </a>
         <h2 class="text-3xl font-bold text-bio-dark flex items-center justify-center gap-2">
-            สมัครสมาชิก 📝
+            สมัครสมาชิก
         </h2>
         <p class="text-slate-500 text-sm">สร้างบัญชีเพื่อเริ่มต้นเรียนชีววิทยากับ reanBio</p>
     </div>
@@ -35,19 +35,19 @@
             <label for="{{ field.id_for_label }}" class="block text-sm font-semibold text-bio-dark">
                 {{ field.label }}:
             </label>
-            
+
             {% if field.name == 'role' %}
                 <!-- ตัวเลือก Dropdown สำหรับบทบาท -->
                 <select name="{{ field.name }}" id="{{ field.id_for_label }}"
                     class="w-full px-5 py-3.5 bg-bio-light/50 border border-bio-light rounded-2xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition duration-200 cursor-pointer">
-                    <option value="student" {% if field.value == 'student' %}selected{% endif %}>นักเรียน 👨‍🎓</option>
-                    <option value="teacher" {% if field.value == 'teacher' %}selected{% endif %}>คุณครู 👨‍🏫</option>
+                    <option value="student" {% if field.value == 'student' %}selected{% endif %}>นักเรียน</option>
+                    <option value="teacher" {% if field.value == 'teacher' %}selected{% endif %}>คุณครู</option>
                 </select>
             {% else %}
-                <input type="{% if 'password' in field.name %}password{% else %}text{% endif %}" 
-                       name="{{ field.name }}" 
-                       id="{{ field.id_for_label }}" 
-                       value="{{ field.value|default:'' }}" 
+                <input type="{% if 'password' in field.name %}password{% else %}text{% endif %}"
+                       name="{{ field.name }}"
+                       id="{{ field.id_for_label }}"
+                       value="{{ field.value|default:'' }}"
                        {% if field.field.required %}required{% endif %}
                        class="w-full px-5 py-3.5 bg-bio-light/50 border border-bio-light rounded-2xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition duration-200">
             {% endif %}
@@ -61,7 +61,7 @@
         <!-- ปุ่มสมัครสมาชิก -->
         <button type="submit"
             class="w-full py-3.5 bg-gradient-to-r from-bio-main to-bio-dark text-white font-bold rounded-full shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-95 transition duration-300 text-base mt-2">
-            ยืนยันการสมัครสมาชิก 🌿
+            ยืนยันการสมัครสมาชิก
         </button>
     </form>
 
@@ -78,7 +78,7 @@
         <div>
             <a href="{% url 'home' %}"
                 class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-bio-dark hover:underline transition">
-                ⬅️ กลับหน้าหลัก
+                ← กลับหน้าหลัก
             </a>
         </div>
     </div>

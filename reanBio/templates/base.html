@@ -35,7 +35,7 @@
       font-family: 'Mali', cursive, sans-serif;
     }
 
-    /* 📌 กันไว้เผื่อ Tailwind CDN โหลดช้า: ให้ .hidden ทำงานแน่นอนเสมอ (เช่น แท็บโปรไฟล์ เมนูมือถือ) */
+    /* กันไว้เผื่อ Tailwind CDN โหลดช้า: ให้ .hidden ทำงานแน่นอนเสมอ (เช่น แท็บโปรไฟล์ เมนูมือถือ) */
     .hidden {
       display: none !important;
     }
@@ -49,7 +49,7 @@
       overflow-x: hidden;
     }
 
-    /* 📌 1. Antigravity Dot-Grid Background */
+    /* 1. Antigravity Dot-Grid Background */
     .bg-antigravity-grid {
       position: absolute;
       top: -80px;
@@ -64,7 +64,7 @@
       will-change: transform;
     }
 
-    /* 📌 2. Glowing Ambient Orbs */
+    /* 2. Glowing Ambient Orbs */
     .glow-orb {
       position: absolute;
       border-radius: 50%;
@@ -100,179 +100,7 @@
       left: 45%;
     }
 
-    /* 🦠 3. Floating Emojis (จัดวางตำแหน่ง 25 ตัวกระจายทั่วจอ) */
-    .bg-animation {
-      position: absolute;
-      inset: -50px;
-      overflow: hidden;
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    .emoji {
-      position: absolute;
-      opacity: 0.18;
-      transition: transform 0.15s ease-out;
-      will-change: transform;
-      user-select: none;
-    }
-
-    /* แถวที่ 1 (ด้านบน) */
-    .emoji:nth-child(1) {
-      top: 6%;
-      left: 8%;
-      font-size: 3.5rem;
-    }
-
-    .emoji:nth-child(2) {
-      top: 12%;
-      left: 28%;
-      font-size: 2.2rem;
-    }
-
-    .emoji:nth-child(3) {
-      top: 5%;
-      left: 52%;
-      font-size: 3.0rem;
-    }
-
-    .emoji:nth-child(4) {
-      top: 10%;
-      left: 75%;
-      font-size: 3.8rem;
-    }
-
-    .emoji:nth-child(5) {
-      top: 8%;
-      left: 92%;
-      font-size: 2.5rem;
-    }
-
-    /* แถวที่ 2 (บนค่อนกลาง) */
-    .emoji:nth-child(6) {
-      top: 28%;
-      left: 5%;
-      font-size: 2.8rem;
-    }
-
-    .emoji:nth-child(7) {
-      top: 25%;
-      left: 22%;
-      font-size: 3.2rem;
-    }
-
-    .emoji:nth-child(8) {
-      top: 32%;
-      left: 42%;
-      font-size: 2.4rem;
-    }
-
-    .emoji:nth-child(9) {
-      top: 22%;
-      left: 65%;
-      font-size: 3.6rem;
-    }
-
-    .emoji:nth-child(10) {
-      top: 30%;
-      left: 85%;
-      font-size: 2.7rem;
-    }
-
-    /* แถวที่ 3 (ตรงกลาง) */
-    .emoji:nth-child(11) {
-      top: 48%;
-      left: 12%;
-      font-size: 3.4rem;
-    }
-
-    .emoji:nth-child(12) {
-      top: 52%;
-      left: 30%;
-      font-size: 2.6rem;
-    }
-
-    .emoji:nth-child(13) {
-      top: 45%;
-      left: 50%;
-      font-size: 3.0rem;
-    }
-
-    .emoji:nth-child(14) {
-      top: 55%;
-      left: 72%;
-      font-size: 2.2rem;
-    }
-
-    .emoji:nth-child(15) {
-      top: 48%;
-      left: 90%;
-      font-size: 3.5rem;
-    }
-
-    /* แถวที่ 4 (กลางค่อนล่าง) */
-    .emoji:nth-child(16) {
-      top: 70%;
-      left: 6%;
-      font-size: 2.5rem;
-    }
-
-    .emoji:nth-child(17) {
-      top: 68%;
-      left: 24%;
-      font-size: 3.8rem;
-    }
-
-    .emoji:nth-child(18) {
-      top: 75%;
-      left: 45%;
-      font-size: 2.3rem;
-    }
-
-    .emoji:nth-child(19) {
-      top: 72%;
-      left: 68%;
-      font-size: 3.2rem;
-    }
-
-    .emoji:nth-child(20) {
-      top: 65%;
-      left: 88%;
-      font-size: 2.8rem;
-    }
-
-    /* แถวที่ 5 (ด้านล่าง) */
-    .emoji:nth-child(21) {
-      top: 88%;
-      left: 15%;
-      font-size: 3.0rem;
-    }
-
-    .emoji:nth-child(22) {
-      top: 85%;
-      left: 35%;
-      font-size: 2.6rem;
-    }
-
-    .emoji:nth-child(23) {
-      top: 90%;
-      left: 58%;
-      font-size: 3.5rem;
-    }
-
-    .emoji:nth-child(24) {
-      top: 86%;
-      left: 78%;
-      font-size: 2.4rem;
-    }
-
-    .emoji:nth-child(25) {
-      top: 92%;
-      left: 94%;
-      font-size: 3.2rem;
-    }
-
-    /* 📌 Sidebar สีขาวมินิมอล */
+    /* Sidebar สีขาวมินิมอล */
     .sidebar {
       width: 260px;
       background: rgba(255, 255, 255, 0.9);
@@ -341,7 +169,7 @@
       box-shadow: 0 4px 12px rgba(50, 150, 50, 0.25);
     }
 
-    /* 📌 Main Layout Structure */
+    /* Main Layout Structure */
     .main-container {
       flex: 1;
       display: flex;
@@ -354,7 +182,7 @@
       width: 100% !important;
     }
 
-    /* 📌 Topbar สีเขียว */
+    /* Topbar สีเขียว */
     .top-navbar {
       width: 100%;
       background: #329632;
@@ -367,7 +195,7 @@
       z-index: 20;
     }
 
-    /* 📌 Profile Button Widget */
+    /* Profile Button Widget */
     .user-pill-btn {
       background: rgba(255, 255, 255, 0.2);
       border: 1px solid rgba(255, 255, 255, 0.4);
@@ -431,7 +259,7 @@
       flex-shrink: 0;
     }
 
-    /* 📌 Content Wrapper */
+    /* Content Wrapper */
     .content-wrapper {
       flex: 1;
       padding: 40px 60px;
@@ -535,6 +363,8 @@
       box-shadow: 0 8px 20px rgba(0, 0, 0, 0.02);
       transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
       cursor: pointer;
+      text-decoration: none;
+      display: block;
     }
 
     .feature-card:hover {
@@ -555,7 +385,34 @@
       margin: 0;
     }
 
-    /* 📱 Mobile Responsiveness Overrides */
+    /* Toast แจ้งเตือนสั้นๆ ด้านล่างจอ (ใช้แทนฟีเจอร์ที่ยังไม่พร้อมใช้งาน) */
+    #reanbio-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #287a28;
+      color: #fff;
+      padding: 12px 22px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      pointer-events: none;
+      white-space: nowrap;
+      max-width: 90vw;
+      text-align: center;
+    }
+
+    #reanbio-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Mobile Responsiveness Overrides */
     @media (max-width: 768px) {
       body {
         flex-direction: column;
@@ -606,7 +463,7 @@
       }
     }
 
-    /* 📱 Mobile Overlay Backdrop */
+    /* Mobile Overlay Backdrop */
     #mobile-backdrop {
       display: none;
       position: fixed;
@@ -630,39 +487,7 @@
   <div class="glow-orb glow-orb-2"></div>
   <div class="glow-orb glow-orb-3"></div>
 
-  <div class="bg-animation">
-    <div class="emoji">🧬</div>
-    <div class="emoji">🦠</div>
-    <div class="emoji">🌿</div>
-    <div class="emoji">🔬</div>
-    <div class="emoji">🧫</div>
-
-    <div class="emoji">🌱</div>
-    <div class="emoji">🍄</div>
-    <div class="emoji">🦋</div>
-    <div class="emoji">🐛</div>
-    <div class="emoji">🩸</div>
-
-    <div class="emoji">🧠</div>
-    <div class="emoji">🫀</div>
-    <div class="emoji">🧪</div>
-    <div class="emoji">🍃</div>
-    <div class="emoji">🦴</div>
-
-    <div class="emoji">🫁</div>
-    <div class="emoji">🐝</div>
-    <div class="emoji">🌾</div>
-    <div class="emoji">🌵</div>
-    <div class="emoji">🐞</div>
-
-    <div class="emoji">🧬</div>
-    <div class="emoji">🔬</div>
-    <div class="emoji">🌱</div>
-    <div class="emoji">🧫</div>
-    <div class="emoji">🌿</div>
-  </div>
-
-  <!-- 📱 ฉากหลังสีดำเมื่อเปิดเมนูในมือถือ -->
+  <!-- ฉากหลังสีดำเมื่อเปิดเมนูในมือถือ -->
   <div id="mobile-backdrop" onclick="toggleMobileSidebar()"></div>
 
   {% if request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'signup' %}
@@ -672,29 +497,29 @@
     </a>
 
     <nav class="nav-menu">
-      <a href="{% url 'home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">🏠 หน้าหลัก</a>
+      <a href="{% url 'home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">หน้าหลัก</a>
 
       {% if request.user.is_authenticated %}
-        <a href="{% url 'profile' %}" class="{% if request.resolver_match.url_name == 'profile' %}active{% endif %}">👤 ข้อมูลส่วนตัว</a>
-        <a href="{% url 'lessons' %}" class="{% if request.resolver_match.url_name == 'lessons' %}active{% endif %}">📚 บทเรียน</a>
+        <a href="{% url 'profile' %}" class="{% if request.resolver_match.url_name == 'profile' %}active{% endif %}">ข้อมูลส่วนตัว</a>
+        <a href="{% url 'lessons' %}" class="{% if request.resolver_match.url_name == 'lessons' %}active{% endif %}">บทเรียน</a>
 
-        <!-- 📌 แยกเมนูตามบทบาทคุณครู / นักเรียน -->
+        <!-- แยกเมนูตามบทบาทคุณครู / นักเรียน -->
         {% if request.user.is_teacher %}
-          <a href="{% url 'teacher_dashboard' %}" class="{% if request.resolver_match.url_name == 'teacher_dashboard' %}active{% endif %}">🏫 แดชบอร์ดห้องเรียน</a>
+          <a href="{% url 'teacher_dashboard' %}" class="{% if request.resolver_match.url_name == 'teacher_dashboard' %}active{% endif %}">แดชบอร์ดห้องเรียน</a>
         {% else %}
-          <a href="{% url 'my_classrooms' %}" class="{% if request.resolver_match.url_name == 'my_classrooms' %}active{% endif %}">🏫 ห้องเรียนของฉัน</a>
+          <a href="{% url 'my_classrooms' %}" class="{% if request.resolver_match.url_name == 'my_classrooms' %}active{% endif %}">ห้องเรียนของฉัน</a>
         {% endif %}
 
-        <a href="{% url 'logout' %}">🚪 ออกจากระบบ</a>
+        <a href="{% url 'logout' %}">ออกจากระบบ</a>
       {% else %}
-        <a href="{% url 'login' %}">🔑 เข้าสู่ระบบ</a>
-        <a href="{% url 'signup' %}">📝 สมัครสมาชิก</a>
+        <a href="{% url 'login' %}">เข้าสู่ระบบ</a>
+        <a href="{% url 'signup' %}">สมัครสมาชิก</a>
       {% endif %}
     </nav>
 
     {% if request.resolver_match.url_name != 'home' %}
     <div style="margin-top: auto;">
-      <a href="{% url 'home' %}" class="btn-back-home">⬅️ กลับหน้าหลัก</a>
+      <a href="{% url 'home' %}" class="btn-back-home">← กลับหน้าหลัก</a>
     </div>
     {% endif %}
   </aside>
@@ -703,9 +528,9 @@
   <div
     class="main-container {% if request.resolver_match.url_name == 'login' or request.resolver_match.url_name == 'signup' %}full-width-container{% endif %}">
 
-    <!-- 📌 Topbar -->
+    <!-- Topbar -->
     <header class="top-navbar">
-      <!-- 📱 ปุ่ม Hamburger Menu (จะโชว์เฉพาะหน้าจอมือถือ) -->
+      <!-- ปุ่ม Hamburger Menu (จะโชว์เฉพาะหน้าจอมือถือ) -->
       {% if request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'signup' %}
       <button onclick="toggleMobileSidebar()" class="md:hidden text-white font-bold text-2xl px-2 py-1 focus:outline-none">
         ☰
@@ -718,12 +543,11 @@
       <div style="position: relative;">
         <button onclick="toggleProfileDropdown()" class="user-pill-btn">
           <span>ยินดีต้อนรับ, {{ request.user.username }}</span>
-          <span>🧬</span>
           <span id="arrow-icon" style="font-size: 0.75rem; transition: 0.2s;">▲</span>
         </button>
 
         <div id="profile-dropdown" class="dropdown-card hidden">
-          <!-- 📌 กดแล้วเด้งมาหน้าโปรไฟล์นี้เสมอ -->
+          <!-- กดแล้วเด้งมาหน้าโปรไฟล์นี้เสมอ -->
           <a href="{% url 'profile' %}" class="profile-info-box">
             <div class="avatar-circle">
               {{ request.user.username|first|upper }}
@@ -752,7 +576,7 @@
   </div>
 
   <script>
-    // 📱 ฟังก์ชันสำหรับเปิด-ปิด Sidebar ในมือถือ
+    // ฟังก์ชันสำหรับเปิด-ปิด Sidebar ในมือถือ
     function toggleMobileSidebar() {
       const sidebar = document.getElementById('sidebar');
       const backdrop = document.getElementById('mobile-backdrop');
@@ -762,7 +586,7 @@
       }
     }
 
-    // 📌 ระบบคำนวณทิศทางเมาส์และเคลื่อนที่พื้นหลัง Parallax
+    // ระบบคำนวณทิศทางเมาส์และเคลื่อนที่พื้นหลัง Parallax
     if (window.innerWidth > 768) {
       document.addEventListener('mousemove', function (e) {
         const mouseX = (e.clientX / window.innerWidth) - 0.5;
@@ -782,17 +606,10 @@
         if (orb1) orb1.style.transform = `translate3d(${mouseX * -65}px, ${mouseY * -65}px, 0)`;
         if (orb2) orb2.style.transform = `translate3d(${mouseX * 85}px, ${mouseY * 85}px, 0)`;
         if (orb3) orb3.style.transform = `translate3d(${mouseX * -45}px, ${mouseY * -45}px, 0)`;
-
-        // 3. ขยับอีโมจิชีววิทยาตามทิศทางเมาส์ด้วยระดับความเร็วแยกรายตัว
-        const emojis = document.querySelectorAll('.emoji');
-        emojis.forEach((emoji, idx) => {
-          const factor = ((idx % 5) + 1) * 12;
-          emoji.style.transform = `translate3d(${mouseX * factor}px, ${mouseY * factor}px, 0)`;
-        });
       });
     }
 
-    // 📌 Toggle Profile Dropdown
+    // Toggle Profile Dropdown
     function toggleProfileDropdown() {
       const dropdown = document.getElementById('profile-dropdown');
       const arrow = document.getElementById('arrow-icon');
@@ -813,6 +630,22 @@
         if (arrow) arrow.style.transform = 'rotate(0deg)';
       }
     });
+
+    // กล่องข้อความแจ้งเตือนสั้นๆ ใช้ร่วมกันได้ทุกหน้า เช่น ปุ่มที่ยังไม่พร้อมใช้งานเต็มรูปแบบ
+    function reanBioToast(message) {
+      let toast = document.getElementById('reanbio-toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'reanbio-toast';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toast._hideTimer);
+      toast._hideTimer = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2600);
+    }
   </script>
 
 </body>

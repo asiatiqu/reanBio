@@ -18,22 +18,22 @@
             </span>
             {% endif %}
             <h1 class="text-3xl md:text-4xl font-extrabold mt-2 flex items-center gap-3">
-                <span>{{ lesson.icon }}</span> {{ lesson.title }}
+                {{ lesson.title }}
             </h1>
             <p class="text-sm opacity-90 mt-1 max-w-2xl">{{ lesson.description }}</p>
         </div>
         <div class="flex flex-col gap-2 shrink-0">
             <a href="{% url 'lessons' %}" class="px-5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition whitespace-nowrap text-center">
-                ⬅️ กลับคลังบทเรียน
+                ← กลับคลังบทเรียน
             </a>
             {% if lesson.questions.count and not is_teacher %}
             <a href="{% url 'lesson_exercise' pk=lesson.pk %}" class="px-5 py-2.5 bg-white text-bio-dark hover:bg-bio-light font-bold rounded-2xl text-xs transition whitespace-nowrap text-center shadow">
-                📝 ทำแบบฝึกหัด ({{ lesson.questions.count }} ข้อ)
+                ทำแบบฝึกหัด ({{ lesson.questions.count }} ข้อ)
             </a>
             {% endif %}
             {% if is_teacher %}
             <span class="px-5 py-2.5 bg-white/15 text-white/80 font-bold rounded-2xl text-xs whitespace-nowrap text-center border border-white/20">
-                👀 โหมดคุณครู · อ่านเนื้อหาเท่านั้น
+                โหมดคุณครู · อ่านเนื้อหาเท่านั้น
             </span>
             {% endif %}
         </div>
@@ -42,7 +42,7 @@
     <!-- กล่องแสดงเนื้อหาบทเรียน -->
     <div class="bg-white/95 backdrop-blur-md rounded-[35px] border border-white shadow-lg p-8 md:p-10 space-y-6">
         <h2 class="text-xl font-bold text-bio-dark flex items-center gap-2 border-b pb-4 border-slate-100">
-            📖 เนื้อหาการเรียนรู้
+            เนื้อหาการเรียนรู้
         </h2>
 
         <div class="p-6 bg-bio-light/50 rounded-2xl text-slate-700 leading-relaxed text-sm md:text-base space-y-4">
@@ -52,7 +52,7 @@
 
         {% if lesson.diagram_svg %}
         <div class="pt-2">
-            <h3 class="text-lg font-bold text-bio-dark flex items-center gap-2 mb-3">🖼️ ภาพประกอบ</h3>
+            <h3 class="text-lg font-bold text-bio-dark flex items-center gap-2 mb-3">ภาพประกอบ</h3>
             <div class="p-4 md:p-6 bg-white border border-slate-100 rounded-2xl overflow-x-auto">
                 <div class="min-w-[600px]">{{ lesson.diagram_svg|safe }}</div>
             </div>
@@ -61,14 +61,16 @@
 
         {% if lesson.content %}
         <div class="pt-2">
-            <h3 class="text-lg font-bold text-bio-dark flex items-center gap-2 mb-3">📄 เนื้อหาแบบเต็ม</h3>
+            <h3 class="text-lg font-bold text-bio-dark flex items-center gap-2 mb-3">เนื้อหาแบบเต็ม</h3>
 
             {% if search_query %}
             <form method="get" class="mb-4">
                 <div class="relative w-full md:w-96">
                     <input type="text" name="q" value="{{ search_query }}" placeholder="ค้นหาคำในเนื้อหา..."
                         class="w-full px-5 py-2.5 pl-11 bg-white border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main transition">
-                    <button type="submit" class="absolute left-4 top-2.5 text-slate-400 bg-transparent border-0 cursor-pointer">🔍</button>
+                    <button type="submit" class="absolute left-4 top-2.5 text-slate-400 bg-transparent border-0 cursor-pointer" aria-label="ค้นหา">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
+                    </button>
                 </div>
             </form>
             {% else %}
@@ -76,7 +78,9 @@
                 <div class="relative w-full md:w-96">
                     <input type="text" name="q" placeholder="ค้นหาคำในเนื้อหาบทเรียนนี้..."
                         class="w-full px-5 py-2.5 pl-11 bg-white border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main transition">
-                    <button type="submit" class="absolute left-4 top-2.5 text-slate-400 bg-transparent border-0 cursor-pointer">🔍</button>
+                    <button type="submit" class="absolute left-4 top-2.5 text-slate-400 bg-transparent border-0 cursor-pointer" aria-label="ค้นหา">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
+                    </button>
                 </div>
             </form>
             {% endif %}
@@ -90,17 +94,16 @@
         <!-- ตัวอย่างพื้นที่วางสื่อการเรียน -->
         <div class="grid grid-cols-1 {% if lesson.subtopic_code == '1.1' %}md:grid-cols-1{% else %}md:grid-cols-2{% endif %} gap-4 pt-4">
             <div class="p-6 border-2 border-dashed border-slate-200 rounded-3xl text-center space-y-2">
-                <span class="text-4xl">🎬</span>
                 <p class="font-bold text-bio-dark text-sm">วิดีโอการสอน</p>
                 <p class="text-xs text-slate-400">เตรียมพบกับวิดีโออธิบายเนื้อหาอย่างละเอียด</p>
             </div>
 
             {% if lesson.subtopic_code == '1.1' %}
-            <!-- 📌 สื่อ 3D Interactive (Three.js) — ทดลองทำก่อนสำหรับหัวข้อ 1.1 ธรรมชาติของสิ่งมีชีวิต -->
+            <!-- สื่อ 3D Interactive (Three.js) — ทดลองทำก่อนสำหรับหัวข้อ 1.1 ธรรมชาติของสิ่งมีชีวิต -->
             <div class="p-6 bg-white border border-slate-100 rounded-3xl space-y-4">
                 <div class="flex items-center justify-between flex-wrap gap-2">
                     <h3 class="font-bold text-bio-dark text-sm flex items-center gap-2">
-                        🧫 สื่อ 3D Interactive: ระดับการจัดระบบของสิ่งมีชีวิต
+                        สื่อ 3D Interactive: ระดับการจัดระบบของสิ่งมีชีวิต
                     </h3>
                     <span class="text-xs text-slate-400">ลากเมาส์เพื่อหมุน · เลื่อนล้อเพื่อซูม · กดที่ชิ้นส่วนเพื่อดูรายละเอียด</span>
                 </div>
@@ -116,7 +119,6 @@
             </div>
             {% else %}
             <div class="p-6 border-2 border-dashed border-slate-200 rounded-3xl text-center space-y-2">
-                <span class="text-4xl">🧫</span>
                 <p class="font-bold text-bio-dark text-sm">สื่อ 3D Interactive / Flashcards</p>
                 <p class="text-xs text-slate-400">สำรวจแบบจำลองโครงสร้างทางชีววิทยา</p>
             </div>
@@ -144,7 +146,7 @@
     const descEl = document.getElementById('org3d-caption-desc');
 
     function updateCaption(level) {
-        nameEl.textContent = `${level.icon} ${level.name}`;
+        nameEl.textContent = level.name;
         descEl.textContent = level.desc;
     }
 
@@ -160,7 +162,7 @@
         ORGANIZATION_LEVELS.forEach((level, i) => {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.textContent = `${level.icon} ${level.name.split(' ')[0]}`;
+            btn.textContent = level.name.split(' ')[0];
             btn.className = 'org3d-level-btn px-3 py-1.5 rounded-full text-xs font-bold border transition bg-white text-bio-dark border-bio-light hover:bg-bio-light/60';
             btn.addEventListener('click', () => scene.selectLevel(i));
             buttonsWrap.appendChild(btn);
@@ -180,7 +182,7 @@
         tooltip.style.transform = 'translate(-50%, -110%)';
 
         function showTooltip(level, pos) {
-            tooltip.innerHTML = `<p class="font-bold text-bio-dark text-xs">${level.icon} ${level.name}</p><p class="text-[11px] text-slate-500 mt-1 leading-relaxed">${level.desc}</p>`;
+            tooltip.innerHTML = `<p class="font-bold text-bio-dark text-xs">${level.name}</p><p class="text-[11px] text-slate-500 mt-1 leading-relaxed">${level.desc}</p>`;
             const w = container.clientWidth || 600;
             const h = container.clientHeight || 320;
             const tw = tooltip.offsetWidth || 208;
@@ -207,7 +209,7 @@
         container.appendChild(tooltip);
         renderButtons(scene);
 
-        nameEl.textContent = '👆 กดที่ชิ้นส่วนในโมเดล หรือกดปุ่มด้านล่าง';
+        nameEl.textContent = 'กดที่ชิ้นส่วนในโมเดล หรือกดปุ่มด้านล่าง';
         descEl.textContent = 'เพื่อดูว่าแต่ละส่วนคือระดับการจัดระบบใดของสิ่งมีชีวิต';
 
         document.addEventListener('click', (e) => {
@@ -221,7 +223,7 @@
 {% endif %}
 
 <script>
-    // 🧠 ตรวจคำตอบ checkpoint ระหว่างเนื้อหาแบบทันที ฝั่งเบราว์เซอร์ล้วนๆ ไม่เก็บคะแนน แค่บอกถูก/ผิด
+    // ตรวจคำตอบ checkpoint ระหว่างเนื้อหาแบบทันที ฝั่งเบราว์เซอร์ล้วนๆ ไม่เก็บคะแนน แค่บอกถูก/ผิด
     function checkCheckpoint(cpId) {
         const card = document.querySelector(`[data-cp-id="${cpId}"]`);
         if (!card) return;
@@ -230,14 +232,14 @@
         const explainEl = document.getElementById(`cp-explain-${cpId}`);
 
         if (!selected) {
-            resultEl.textContent = '⚠️ กรุณาเลือกคำตอบก่อนนะ';
+            resultEl.textContent = 'กรุณาเลือกคำตอบก่อนนะ';
             resultEl.className = 'mt-2 text-sm font-bold text-amber-600';
             resultEl.classList.remove('hidden');
             return;
         }
 
         const isCorrect = selected.dataset.correct === '1';
-        resultEl.textContent = isCorrect ? '✅ ถูกต้อง!' : '❌ ยังไม่ถูก ลองอ่านทบทวนอีกครั้งนะ';
+        resultEl.textContent = isCorrect ? 'ถูกต้อง!' : 'ยังไม่ถูก ลองอ่านทบทวนอีกครั้งนะ';
         resultEl.className = `mt-2 text-sm font-bold ${isCorrect ? 'text-green-600' : 'text-red-600'}`;
         resultEl.classList.remove('hidden');
         if (explainEl) explainEl.classList.remove('hidden');

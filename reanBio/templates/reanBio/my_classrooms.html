@@ -19,7 +19,7 @@
     <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
             <h1 class="text-2xl md:text-3xl font-bold text-bio-dark flex items-center gap-2">
-                ห้องเรียนของฉัน 🏫
+                ห้องเรียนของฉัน
             </h1>
             <p class="text-xs md:text-sm text-slate-500 mt-1">กรอกรหัส 6 หลักจากคุณครูเพื่อเข้าร่วมห้องเรียน</p>
         </div>
@@ -30,7 +30,7 @@
                 class="px-5 py-3 bg-bio-light/50 border border-bio-light rounded-2xl text-sm font-bold tracking-widest text-center uppercase focus:outline-none focus:ring-2 focus:ring-bio-main w-full md:w-64">
             <button type="submit"
                 class="px-6 py-3 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl shadow-md transition whitespace-nowrap">
-                🔑 เข้าร่วมห้องเรียน
+                เข้าร่วมห้องเรียน
             </button>
         </form>
     </div>
@@ -45,19 +45,18 @@
                     <h3 class="font-bold text-xl leading-snug">{{ room.name }}</h3>
                 </div>
                 <div class="p-6 space-y-3">
-                    <p class="text-xs text-slate-600 font-semibold">👨‍🏫 คุณครู: {{ room.teacher.first_name|default:room.teacher.username }}</p>
+                    <p class="text-xs text-slate-600 font-semibold">คุณครู: {{ room.teacher.first_name|default:room.teacher.username }}</p>
                 </div>
             </div>
             <div class="p-6 pt-0">
                 <a href="{% url 'classroom_detail' code=room.code %}"
                     class="block w-full py-3 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl text-center text-sm transition">
-                    เข้าสู่ห้องเรียน 🚪
+                    เข้าสู่ห้องเรียน
                 </a>
             </div>
         </div>
         {% empty %}
         <div class="col-span-full py-16 text-center text-slate-400 border-2 border-dashed border-slate-300 rounded-[30px] bg-white/40">
-            <span class="text-5xl">🏫</span>
             <p class="font-semibold text-slate-700 mt-2">ยังไม่ได้เข้าร่วมห้องเรียนใดๆ</p>
             <p class="text-xs text-slate-400">กรอกรหัส 6 หลักที่คุณครูให้ในช่องด้านบนเพื่อเริ่มต้นเข้าเรียน</p>
         </div>

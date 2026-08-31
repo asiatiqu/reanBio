@@ -12,19 +12,18 @@
                 ระดับชั้น {{ lesson.get_grade_display }}{% if lesson.chapter_title %} · บทที่ {{ lesson.chapter }}: {{ lesson.chapter_title }}{% endif %}
             </span>
             <h1 class="text-2xl md:text-3xl font-extrabold mt-2 flex items-center gap-3">
-                📝 แบบฝึกหัด: {{ lesson.title }}
+                แบบฝึกหัด: {{ lesson.title }}
             </h1>
             <p class="text-sm opacity-90 mt-1">มีทั้งหมด {{ question_count }} ข้อ ทำได้หลายครั้ง ระบบจะเก็บประวัติคะแนนไว้ให้อัตโนมัติ</p>
         </div>
         <a href="{% url 'lesson_detail' pk=lesson.pk %}" class="px-5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition whitespace-nowrap">
-            ⬅️ กลับไปหน้าบทเรียน
+            ← กลับไปหน้าบทเรียน
         </a>
     </div>
 
     <div class="bg-white/95 backdrop-blur-md rounded-[35px] border border-white shadow-lg p-8 md:p-10 space-y-6">
         {% if question_count == 0 %}
         <div class="col-span-full py-10 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-[30px] bg-white/40">
-            <span class="text-5xl">📭</span>
             <p class="font-semibold text-slate-700 mt-2">บทเรียนนี้ยังไม่มีแบบฝึกหัด</p>
         </div>
         {% else %}
@@ -32,12 +31,12 @@
             <form method="post" action="{% url 'start_practice_attempt' pk=lesson.pk %}" class="flex-1">
                 {% csrf_token %}
                 <button type="submit" class="w-full py-4 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-center text-sm shadow transition">
-                    🚀 เริ่มทำแบบฝึกหัด ({{ question_count }} ข้อ)
+                    เริ่มทำแบบฝึกหัด ({{ question_count }} ข้อ)
                 </button>
             </form>
             <a href="{% url 'exercise_pdf' pk=lesson.pk %}"
                 class="flex-1 py-4 bg-white border-2 border-bio-main text-bio-dark font-bold rounded-2xl text-center text-sm shadow transition hover:bg-bio-light flex items-center justify-center gap-2">
-                📄 ดาวน์โหลด PDF ไปทำบนกระดาษ
+                ดาวน์โหลด PDF ไปทำบนกระดาษ
             </a>
         </div>
         {% endif %}
@@ -45,7 +44,7 @@
         {% if exam_pool_count > 0 %}
         <div class="p-6 bg-bio-light/40 border border-bio-light rounded-3xl">
             <h2 class="text-base font-bold text-bio-dark flex items-center gap-2 mb-1">
-                🎯 ทำข้อสอบหัวข้อนี้ ({{ lesson.subtopic_code }})
+                ทำข้อสอบหัวข้อนี้ ({{ lesson.subtopic_code }})
             </h2>
             <p class="text-xs text-slate-500 mb-4">สุ่มคำถามจากหัวข้อนี้เท่านั้น มีคำถามในคลังทั้งหมด {{ exam_pool_count }} ข้อ คะแนนจะถูกเก็บแยกจากแบบฝึกหัดและแสดงในแดชบอร์ดของคุณ</p>
             <form method="post" action="{% url 'start_lesson_exam' pk=lesson.pk %}" class="flex flex-col sm:flex-row gap-3">
@@ -57,7 +56,7 @@
                     <option value="20">20 ข้อ</option>
                 </select>
                 <button type="submit" class="flex-1 py-2.5 bg-bio-dark hover:bg-bio-main text-white font-bold rounded-2xl text-sm shadow transition">
-                    เริ่มทำข้อสอบ 🚀
+                    เริ่มทำข้อสอบ
                 </button>
             </form>
         </div>
@@ -66,7 +65,7 @@
         {% if question_count > 0 %}
         <div>
             <h2 class="text-lg font-bold text-bio-dark flex items-center gap-2 border-b pb-3 border-slate-100 mb-4">
-                📊 ประวัติการทำแบบฝึกหัดของฉัน
+                ประวัติการทำแบบฝึกหัดของฉัน
             </h2>
             {% if history %}
             <div class="overflow-x-auto">
@@ -106,7 +105,7 @@
         {% if exam_pool_count > 0 %}
         <div>
             <h2 class="text-lg font-bold text-bio-dark flex items-center gap-2 border-b pb-3 border-slate-100 mb-4">
-                🎯 ประวัติการทำข้อสอบหัวข้อนี้
+                ประวัติการทำข้อสอบหัวข้อนี้
             </h2>
             {% if exam_history %}
             <div class="overflow-x-auto">

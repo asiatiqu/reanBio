@@ -6,7 +6,7 @@
 {% block content %}
 <div class="w-full max-w-5xl bg-white/95 backdrop-blur-md rounded-[35px] border border-white shadow-lg p-8 md:p-10 space-y-8">
 
-    <!-- 👤 ส่วนหัวโปรไฟล์ -->
+    <!-- ส่วนหัวโปรไฟล์ -->
     <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 pb-6 border-b border-slate-100">
         <!-- รูปโปรไฟล์ -->
         <div class="w-28 h-28 bg-bio-light border-4 border-bio-main text-bio-dark rounded-full flex items-center justify-center font-bold text-4xl shadow-md overflow-hidden shrink-0">
@@ -28,14 +28,14 @@
                     {% endif %}
                 </h2>
 
-                <!-- 📌 ป้ายบอกบทบาทผู้ใช้ -->
+                <!-- ป้ายบอกบทบาทผู้ใช้ -->
                 {% if request.user.is_teacher %}
                 <span class="bg-bio-main text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
-                    👨‍🏫 คุณครูผู้สอน
+                    คุณครูผู้สอน
                 </span>
                 {% else %}
                 <span class="bg-bio-light text-bio-dark border border-bio-light text-xs font-bold px-3 py-1 rounded-full">
-                    🎓 นักเรียน
+                    นักเรียน
                 </span>
                 {% endif %}
             </div>
@@ -43,7 +43,7 @@
         </div>
     </div>
 
-    <!-- 📑 แถบเมนูแท็บ -->
+    <!-- แถบเมนูแท็บ -->
     <div class="space-y-6">
         <div class="border-b border-slate-200">
             <div class="flex overflow-x-auto gap-4 md:gap-8 text-sm md:text-base font-bold text-slate-500">
@@ -71,7 +71,7 @@
             </div>
         </div>
 
-        <!-- 📌 แท็บ: ห้องเรียนของฉัน -->
+        <!-- แท็บ: ห้องเรียนของฉัน -->
         <div id="tab-panel-classrooms" class="profile-tab-panel">
             {% if classrooms %}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -85,38 +85,37 @@
                             </span>
                         </div>
                         {% if request.user.is_teacher %}
-                        <p class="text-xs font-semibold text-slate-500">👥 นักเรียนทั้งหมด: {{ room.students.count }} คน</p>
+                        <p class="text-xs font-semibold text-slate-500">นักเรียนทั้งหมด: {{ room.students.count }} คน</p>
                         {% else %}
-                        <p class="text-xs font-semibold text-slate-500">👨‍🏫 สอนโดย: {{ room.teacher.first_name|default:room.teacher.username }}</p>
+                        <p class="text-xs font-semibold text-slate-500">สอนโดย: {{ room.teacher.first_name|default:room.teacher.username }}</p>
                         {% endif %}
                     </div>
 
                     <div>
                         <a href="{% url 'classroom_detail' code=room.code %}"
                             class="block w-full py-2.5 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-center text-xs shadow transition">
-                            เข้าสู่ห้องเรียน 🚪
+                            เข้าสู่ห้องเรียน
                         </a>
                     </div>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <!-- 📌 กรณีคุณครูยังไม่ได้สร้างห้องเรียน / นักเรียนยังไม่ได้ เข้าร่วม -->
+            <!-- กรณีคุณครูยังไม่ได้สร้างห้องเรียน / นักเรียนยังไม่ได้ เข้าร่วม -->
             <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-3">
-                <span class="text-5xl">🌿</span>
                 {% if request.user.is_teacher %}
                 <p class="font-semibold text-base text-slate-700">คุณครูยังไม่ได้สร้างห้องเรียนใดๆ</p>
                 <p class="text-xs text-slate-400">สร้างห้องเรียนในแดชบอร์ดและนำรหัส 6 หลักไปแจกให้นักเรียนเข้าร่วม</p>
                 <a href="{% url 'teacher_dashboard' %}"
                     class="mt-2 px-5 py-2.5 bg-bio-main hover:bg-bio-dark text-white font-bold text-sm rounded-2xl transition flex items-center gap-2 shadow-sm">
-                    <span>➕</span> ไปหน้าแดชบอร์ดเพื่อสร้างห้องเรียน
+                    ไปหน้าแดชบอร์ดเพื่อสร้างห้องเรียน
                 </a>
                 {% else %}
                 <p class="font-semibold text-base text-slate-700">ยังไม่ได้เข้าร่วมห้องเรียนใดๆ</p>
                 <p class="text-xs text-slate-400">ค้นหาห้องเรียนด้วยรหัสหรือชื่อของคุณครูเพื่อเริ่มเรียน</p>
                 <a href="{% url 'my_classrooms' %}"
                     class="mt-2 px-5 py-2.5 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold text-sm rounded-2xl border border-bio-light transition flex items-center gap-2">
-                    <span>➕</span> เข้าร่วมห้องเรียนของคุณครู
+                    เข้าร่วมห้องเรียนของคุณครู
                 </a>
                 {% endif %}
             </div>
@@ -124,15 +123,14 @@
         </div>
 
         {% if not request.user.is_teacher %}
-        <!-- 📌 แท็บ: วิดีโอที่เรียน (เตรียมพัฒนาต่อ) -->
+        <!-- แท็บ: วิดีโอที่เรียน (เตรียมพัฒนาต่อ) -->
         <div id="tab-panel-videos" class="profile-tab-panel hidden">
             <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-3">
-                <span class="text-5xl">🎬</span>
                 <p class="font-semibold text-base text-slate-700">เตรียมพบกับวิดีโอที่เรียนย้อนหลัง</p>
             </div>
         </div>
 
-        <!-- 📌 แท็บ: เข้าชมล่าสุด -->
+        <!-- แท็บ: เข้าชมล่าสุด -->
         <div id="tab-panel-recent" class="profile-tab-panel hidden">
             {% if recent_views %}
             <div class="overflow-x-auto">
@@ -148,7 +146,7 @@
                     <tbody>
                         {% for v in recent_views %}
                         <tr class="border-t border-slate-100">
-                            <td class="py-2.5 pr-4 font-semibold text-slate-700">{{ v.lesson.icon }} {{ v.lesson.title }}</td>
+                            <td class="py-2.5 pr-4 font-semibold text-slate-700">{{ v.lesson.title }}</td>
                             <td class="py-2.5 pr-4 text-slate-500">{{ v.lesson.get_grade_display }} · บทที่ {{ v.lesson.chapter }}</td>
                             <td class="py-2.5 pr-4 text-slate-500">{{ v.viewed_at|date:"d/m/Y H:i" }}</td>
                             <td class="py-2.5 pr-4"><a href="{% url 'lesson_detail' pk=v.lesson.pk %}" class="text-bio-main font-semibold hover:underline">เปิดอีกครั้ง →</a></td>
@@ -159,7 +157,6 @@
             </div>
             {% else %}
             <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-3">
-                <span class="text-5xl">🕒</span>
                 <p class="font-semibold text-base text-slate-700">ยังไม่มีประวัติการเข้าชมบทเรียน</p>
                 <p class="text-xs text-slate-400">ลองเปิดอ่านบทเรียนสักบทดูก่อนนะ แล้วจะขึ้นตรงนี้ให้เอง</p>
             </div>
@@ -168,15 +165,14 @@
         {% endif %}
 
         {% if not request.user.is_teacher %}
-        <!-- 📌 แท็บ: แดชบอร์ดผลการเรียน (คะแนนแบบฝึกหัด/ข้อสอบ) -->
+        <!-- แท็บ: แดชบอร์ดผลการเรียน (คะแนนแบบฝึกหัด/ข้อสอบ) -->
         <div id="tab-panel-dashboard" class="profile-tab-panel hidden space-y-6">
             {% if total_attempts == 0 %}
             <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-3">
-                <span class="text-5xl">📭</span>
                 <p class="font-semibold text-base text-slate-700">ยังไม่มีประวัติการทำแบบฝึกหัดหรือข้อสอบ</p>
                 <p class="text-xs text-slate-400">ลองไปทำแบบฝึกหัดหรือข้อสอบในบทเรียนดูก่อนนะ</p>
                 <a href="{% url 'lessons' %}" class="mt-2 px-5 py-2.5 bg-bio-main hover:bg-bio-dark text-white font-bold text-sm rounded-2xl transition flex items-center gap-2 shadow-sm">
-                    <span>📚</span> ไปที่บทเรียน
+                    ไปที่บทเรียน
                 </a>
             </div>
             {% else %}
@@ -185,7 +181,7 @@
             <div class="bg-gradient-to-r from-bio-main to-bio-dark text-white rounded-3xl p-6 md:p-8 shadow-lg">
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h3 class="font-bold text-lg flex items-center gap-2">🏆 คะแนนรวมถ่วงน้ำหนัก (แบบ GPA)</h3>
+                        <h3 class="font-bold text-lg flex items-center gap-2">คะแนนรวมถ่วงน้ำหนัก (แบบ GPA)</h3>
                         <p class="text-xs opacity-90 mt-1">
                             คำนวณจากคะแนนข้อสอบล่าสุดของแต่ละหัวข้อย่อย คูณน้ำหนักของหัวข้อนั้น (หน่วยกิตรวม {{ weighted_total }})
                             แต่ละหัวข้อมีน้ำหนักไม่เท่ากันตามความยาก
@@ -225,7 +221,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="bg-bio-light/30 border border-bio-light rounded-3xl p-6">
                     <div class="flex items-center justify-between mb-3">
-                        <h3 class="font-bold text-bio-dark">📝 แนวโน้มแบบฝึกหัด</h3>
+                        <h3 class="font-bold text-bio-dark">แนวโน้มแบบฝึกหัด</h3>
                         {% if practice_trend != None %}
                         <span class="px-3 py-1 rounded-full text-xs font-bold {% if practice_trend > 0 %}bg-green-100 text-green-700{% elif practice_trend < 0 %}bg-red-100 text-red-600{% else %}bg-slate-100 text-slate-500{% endif %}">
                             {% if practice_trend > 0 %}▲ ดีขึ้น {{ practice_trend }}%{% elif practice_trend < 0 %}▼ แย่ลง {{ practice_trend }}%{% else %}▬ คงที่{% endif %}
@@ -241,7 +237,7 @@
 
                 <div class="bg-bio-light/30 border border-bio-light rounded-3xl p-6">
                     <div class="flex items-center justify-between mb-3">
-                        <h3 class="font-bold text-bio-dark">🎯 แนวโน้มข้อสอบ</h3>
+                        <h3 class="font-bold text-bio-dark">แนวโน้มข้อสอบ</h3>
                         {% if exam_trend != None %}
                         <span class="px-3 py-1 rounded-full text-xs font-bold {% if exam_trend > 0 %}bg-green-100 text-green-700{% elif exam_trend < 0 %}bg-red-100 text-red-600{% else %}bg-slate-100 text-slate-500{% endif %}">
                             {% if exam_trend > 0 %}▲ ดีขึ้น {{ exam_trend }}%{% elif exam_trend < 0 %}▼ แย่ลง {{ exam_trend }}%{% else %}▬ คงที่{% endif %}
@@ -258,7 +254,7 @@
 
             {% if practice_attempts %}
             <div>
-                <h3 class="font-bold text-bio-dark mb-3">📝 ประวัติแบบฝึกหัดล่าสุด</h3>
+                <h3 class="font-bold text-bio-dark mb-3">ประวัติแบบฝึกหัดล่าสุด</h3>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left">
                         <thead>
@@ -288,7 +284,7 @@
 
             {% if exam_attempts %}
             <div>
-                <h3 class="font-bold text-bio-dark mb-3">🎯 ประวัติข้อสอบล่าสุด</h3>
+                <h3 class="font-bold text-bio-dark mb-3">ประวัติข้อสอบล่าสุด</h3>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left">
                         <thead>
@@ -376,7 +372,7 @@
         renderChart('examChart', examData, '#287a28');
     }
 
-    // 📌 ถ้ามาจากลิงก์ที่ระบุแท็บไว้ เช่น ?tab=dashboard (จากหน้าผลข้อสอบ) ให้เปิดแท็บนั้นทันทีแทนแท็บเริ่มต้น
+    // ถ้ามาจากลิงก์ที่ระบุแท็บไว้ เช่น ?tab=dashboard (จากหน้าผลข้อสอบ) ให้เปิดแท็บนั้นทันทีแทนแท็บเริ่มต้น
     (function () {
         const requestedTab = new URLSearchParams(window.location.search).get('tab');
         if (requestedTab) {
