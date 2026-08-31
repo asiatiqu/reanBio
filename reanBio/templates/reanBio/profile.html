@@ -129,38 +129,12 @@
             </div>
         </div>
 
-        <!-- 📌 แท็บ: เข้าชมล่าสุด -->
+        <!-- 📌 แท็บ: เข้าชมล่าสุด (เตรียมพัฒนาต่อ) -->
         <div id="tab-panel-recent" class="profile-tab-panel hidden">
-            {% if recent_views %}
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left">
-                    <thead>
-                        <tr class="text-slate-400 text-xs uppercase">
-                            <th class="py-2 pr-4">บทเรียน</th>
-                            <th class="py-2 pr-4">ระดับชั้น / บทที่</th>
-                            <th class="py-2 pr-4">เข้าชมล่าสุดเมื่อ</th>
-                            <th class="py-2 pr-4"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for v in recent_views %}
-                        <tr class="border-t border-slate-100">
-                            <td class="py-2.5 pr-4 font-semibold text-slate-700">{{ v.lesson.icon }} {{ v.lesson.title }}</td>
-                            <td class="py-2.5 pr-4 text-slate-500">{{ v.lesson.get_grade_display }} · บทที่ {{ v.lesson.chapter }}</td>
-                            <td class="py-2.5 pr-4 text-slate-500">{{ v.viewed_at|date:"d/m/Y H:i" }}</td>
-                            <td class="py-2.5 pr-4"><a href="{% url 'lesson_detail' pk=v.lesson.pk %}" class="text-bio-main font-semibold hover:underline">เปิดอีกครั้ง →</a></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
             <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-3">
                 <span class="text-5xl">🕒</span>
-                <p class="font-semibold text-base text-slate-700">ยังไม่มีประวัติการเข้าชมบทเรียน</p>
-                <p class="text-xs text-slate-400">ลองเปิดอ่านบทเรียนสักบทดูก่อนนะ แล้วจะขึ้นตรงนี้ให้เอง</p>
+                <p class="font-semibold text-base text-slate-700">เตรียมพบกับประวัติการเข้าชมล่าสุด</p>
             </div>
-            {% endif %}
         </div>
 
         {% if not request.user.is_teacher %}
@@ -176,6 +150,47 @@
                 </a>
             </div>
             {% else %}
+
+            {% if weighted_overall != None %}
+            <div class="bg-gradient-to-r from-bio-main to-bio-dark text-white rounded-3xl p-6 md:p-8 shadow-lg">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h3 class="font-bold text-lg flex items-center gap-2">🏆 คะแนนรวมถ่วงน้ำหนัก (แบบ GPA)</h3>
+                        <p class="text-xs opacity-90 mt-1">
+                            คำนวณจากคะแนนข้อสอบล่าสุดของแต่ละหัวข้อย่อย คูณน้ำหนักของหัวข้อนั้น (หน่วยกิตรวม {{ weighted_total }})
+                            แต่ละหัวข้อมีน้ำหนักไม่เท่ากันตามความยาก
+                        </p>
+                    </div>
+                    <div class="text-4xl font-extrabold shrink-0">{{ weighted_overall }}%</div>
+                </div>
+                {% if weighted_rows %}
+                <div class="mt-5 overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead>
+                            <tr class="text-white/70 text-xs uppercase">
+                                <th class="py-2 pr-4">หัวข้อ</th>
+                                <th class="py-2 pr-4">น้ำหนัก</th>
+                                <th class="py-2 pr-4">คะแนนล่าสุด</th>
+                                <th class="py-2 pr-4"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in weighted_rows %}
+                            <tr class="border-t border-white/20">
+                                <td class="py-2.5 pr-4 font-semibold">{{ row.lesson.subtopic_code }} {{ row.lesson.title }}</td>
+                                <td class="py-2.5 pr-4">×{{ row.weight }}</td>
+                                <td class="py-2.5 pr-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-white/20">{{ row.percent }}%</span>
+                                </td>
+                                <td class="py-2.5 pr-4"><a href="{% url 'attempt_result' attempt_pk=row.attempt_pk %}" class="underline font-semibold">ดูผล →</a></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="bg-bio-light/30 border border-bio-light rounded-3xl p-6">
@@ -257,7 +272,7 @@
                         <tbody>
                             {% for a in exam_attempts %}
                             <tr class="border-t border-slate-100">
-                                <td class="py-2.5 pr-4 font-semibold text-slate-700">{% if a.chapter %}บทที่ {{ a.chapter }}{% else %}ข้อสอบรวม{% endif %}</td>
+                                <td class="py-2.5 pr-4 font-semibold text-slate-700">{% if a.lesson %}{{ a.lesson.title }}{% elif a.chapter %}บทที่ {{ a.chapter }}{% else %}ข้อสอบรวม{% endif %}</td>
                                 <td class="py-2.5 pr-4 text-slate-500">{{ a.submitted_at|date:"d/m/Y H:i" }}</td>
                                 <td class="py-2.5 pr-4">
                                     <span class="px-3 py-1 rounded-full text-xs font-bold {% if a.percent >= 80 %}bg-green-100 text-green-700{% elif a.percent >= 50 %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-600{% endif %}">{{ a.percent }}%</span>

@@ -45,9 +45,9 @@
         {% if exam_pool_count > 0 %}
         <div class="p-6 bg-bio-light/40 border border-bio-light rounded-3xl">
             <h2 class="text-base font-bold text-bio-dark flex items-center gap-2 mb-1">
-                🎯 ทำข้อสอบบทที่ {{ lesson.chapter }} (สุ่มจากทั้งบท)
+                🎯 ทำข้อสอบหัวข้อนี้ ({{ lesson.subtopic_code }})
             </h2>
-            <p class="text-xs text-slate-500 mb-4">สุ่มคำถามจากทุกหัวข้อในบทที่ {{ lesson.chapter }} มีคำถามในคลังทั้งหมด {{ exam_pool_count }} ข้อ คะแนนจะถูกเก็บแยกจากแบบฝึกหัดและแสดงในแดชบอร์ดของคุณ</p>
+            <p class="text-xs text-slate-500 mb-4">สุ่มคำถามจากหัวข้อนี้เท่านั้น มีคำถามในคลังทั้งหมด {{ exam_pool_count }} ข้อ คะแนนจะถูกเก็บแยกจากแบบฝึกหัดและแสดงในแดชบอร์ดของคุณ</p>
             <form method="post" action="{% url 'start_lesson_exam' pk=lesson.pk %}" class="flex flex-col sm:flex-row gap-3">
                 {% csrf_token %}
                 <select name="num_questions" class="px-4 py-2.5 bg-white border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main">
@@ -106,7 +106,7 @@
         {% if exam_pool_count > 0 %}
         <div>
             <h2 class="text-lg font-bold text-bio-dark flex items-center gap-2 border-b pb-3 border-slate-100 mb-4">
-                🎯 ประวัติการทำข้อสอบบทที่ {{ lesson.chapter }}
+                🎯 ประวัติการทำข้อสอบหัวข้อนี้
             </h2>
             {% if exam_history %}
             <div class="overflow-x-auto">

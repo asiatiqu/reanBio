@@ -14,7 +14,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.html import escape
 
-from .models import UserProfile, Classroom, Lesson, Question, Choice, Attempt, AttemptAnswer, Checkpoint, LessonView
+from .models import UserProfile, Classroom, Lesson, Question, Choice, Attempt, AttemptAnswer, Checkpoint
 from .forms import UserSignUpForm
 
 
@@ -258,8 +258,6 @@ def profile(request):
     context = {
         'profile': user_profile,
         'classrooms': classrooms,
-        # 📌 แท็บ "เข้าชมล่าสุด": บทเรียนที่เปิดดูล่าสุด (บันทึกไว้ตอนเข้า lesson_detail_view)
-        'recent_views': LessonView.objects.filter(user=request.user).select_related('lesson')[:10],
     }
     # 📌 แท็บ "แดชบอร์ด" ในหน้าโปรไฟล์: สรุปคะแนนแบบฝึกหัด/ข้อสอบ (เฉพาะนักเรียน คุณครูมีแดชบอร์ดห้องเรียนแยกต่างหาก)
     if not is_teacher:
@@ -283,10 +281,6 @@ def lesson_detail_view(request, pk):
     content_html = _render_content_html(lesson.content, search_query, checkpoints)
     # 📌 คุณครูใช้หน้านี้เพื่ออ่านเนื้อหาเท่านั้น ไม่มีสิทธิ์ทำแบบฝึกหัด/ข้อสอบ (นั่นเป็นของนักเรียน)
     is_teacher = request.user.is_authenticated and getattr(request.user, 'is_teacher', False)
-
-    # 📌 บันทึกว่าเข้าชมบทเรียนนี้ล่าสุดเมื่อไหร่ ไว้แสดงในแท็บ "เข้าชมล่าสุด" ของหน้าโปรไฟล์
-    if request.user.is_authenticated:
-        LessonView.objects.update_or_create(user=request.user, lesson=lesson)
 
     return render(request, 'reanBio/lesson_detail.html', {
         'lesson': lesson,
@@ -314,7 +308,7 @@ def _grade_text_answer(question, raw_answer):
 
 @login_required
 def lesson_exercise_view(request, pk):
-    """หน้าภาพรวมแบบฝึกหัดของบทเรียนหนึ่งๆ พร้อมประวัติการทำของผู้ใช้ และปุ่มเริ่มทำข้อสอบของทั้งบท"""
+    """หน้าภาพรวมแบบฝึกหัดของบทเรียนหนึ่งๆ พร้อมประวัติการทำของผู้ใช้ และปุ่มเริ่มทำข้อสอบของหัวข้อนี้"""
     lesson = get_object_or_404(Lesson, pk=pk)
     # 🛑 คุณครูไม่มีสิทธิ์ทำแบบฝึกหัด/ข้อสอบ (ใช้บทเรียนสำหรับอ่านเนื้อหาเท่านั้น)
     if getattr(request.user, 'is_teacher', False):
@@ -325,10 +319,11 @@ def lesson_exercise_view(request, pk):
         user=request.user, lesson=lesson, mode='practice', submitted_at__isnull=False
     ).order_by('-submitted_at')
 
-    exam_pool_count = Question.objects.filter(lesson__grade=lesson.grade, lesson__chapter=lesson.chapter).count()
-    # 📌 ประวัติการทำข้อสอบของ "บทที่" เดียวกับบทเรียนนี้ (ข้อสอบสุ่มจากทั้งบท ไม่ผูกกับหัวข้อย่อยเดียว)
+    # 📌 ข้อสอบสุ่มคำถามจากคลังของ "บทเรียนนี้" (หัวข้อย่อยนี้) เท่านั้น ไม่ผสมกับหัวข้อย่อยอื่นในบทเดียวกัน
+    # เพื่อให้ประวัติการทำข้อสอบของแต่ละหัวข้อย่อยแยกจากกันชัดเจน ไม่ไปโผล่ซ้ำในหน้าหัวข้ออื่น
+    exam_pool_count = len(questions)
     exam_history = Attempt.objects.filter(
-        user=request.user, mode='exam', grade=lesson.grade, chapter=lesson.chapter, submitted_at__isnull=False
+        user=request.user, mode='exam', lesson=lesson, submitted_at__isnull=False
     ).order_by('-submitted_at')
 
     return render(request, 'reanBio/lesson_exercise.html', {
@@ -361,12 +356,10 @@ def start_practice_attempt(request, pk):
     return redirect('attempt_take', attempt_pk=attempt.pk)
 
 
-def _create_exam_attempt(user, grade, chapter, num_questions):
-    """สุ่มคำถามจากคลังข้อสอบตามระดับชั้น/บทที่กำหนด แล้วสร้าง Attempt แบบข้อสอบ คืนค่า Attempt หรือ None ถ้าไม่มีคำถามเลย"""
-    pool = Question.objects.filter(lesson__grade=grade)
-    if chapter:
-        pool = pool.filter(lesson__chapter=chapter)
-    pool = list(pool)
+def _create_exam_attempt(user, lesson, num_questions):
+    """สุ่มคำถามจากคลังข้อสอบของ 'บทเรียนนี้' (หัวข้อย่อยนี้) เท่านั้น แล้วสร้าง Attempt แบบข้อสอบ
+    คืนค่า Attempt หรือ None ถ้าไม่มีคำถามเลย"""
+    pool = list(lesson.questions.all())
     if not pool:
         return None
 
@@ -374,8 +367,7 @@ def _create_exam_attempt(user, grade, chapter, num_questions):
     selected = random.sample(pool, num_questions)
 
     attempt = Attempt.objects.create(
-        user=user, mode='exam', grade=grade,
-        chapter=int(chapter) if chapter else None,
+        user=user, mode='exam', lesson=lesson, grade=lesson.grade, chapter=lesson.chapter,
         max_score=sum(q.points for q in selected),
     )
     for i, q in enumerate(selected, start=1):
@@ -385,7 +377,7 @@ def _create_exam_attempt(user, grade, chapter, num_questions):
 
 @login_required
 def start_lesson_exam(request, pk):
-    """เริ่มทำข้อสอบแบบสุ่มจากคำถามทั้งบท (chapter) ที่บทเรียนนี้สังกัดอยู่ ริเริ่มจากหน้าบทเรียนโดยตรง"""
+    """เริ่มทำข้อสอบแบบสุ่มจากคำถามของบทเรียน (หัวข้อย่อย) นี้เท่านั้น ริเริ่มจากหน้าบทเรียนโดยตรง"""
     lesson = get_object_or_404(Lesson, pk=pk)
     if getattr(request.user, 'is_teacher', False):
         messages.info(request, "บทบาทคุณครูใช้สำหรับอ่านเนื้อหาบทเรียนเท่านั้น ไม่มีการทำแบบฝึกหัด/ข้อสอบ")
@@ -395,9 +387,9 @@ def start_lesson_exam(request, pk):
     except ValueError:
         num_questions = 10
 
-    attempt = _create_exam_attempt(request.user, lesson.grade, lesson.chapter, num_questions)
+    attempt = _create_exam_attempt(request.user, lesson, num_questions)
     if attempt is None:
-        messages.error(request, "บทนี้ยังไม่มีคำถามในคลังข้อสอบ")
+        messages.error(request, "หัวข้อนี้ยังไม่มีคำถามในคลังข้อสอบ")
         return redirect('lesson_exercise', pk=lesson.pk)
 
     return redirect('attempt_take', attempt_pk=attempt.pk)
@@ -452,13 +444,17 @@ def attempt_result_view(request, attempt_pk):
         .order_by('order')
     )
 
-    # สำหรับผลข้อสอบ (exam mode): หาบทเรียนตัวแทนของบทนั้นๆ เพื่อใช้เป็นทางลัดกลับไป "ทำข้อสอบอีกครั้ง"
+    # สำหรับผลข้อสอบ (exam mode): หาบทเรียนของหัวข้อนั้นๆ เพื่อใช้เป็นทางลัดกลับไป "ทำข้อสอบอีกครั้ง"
+    # (ข้อสอบผูกกับบทเรียนโดยตรงอยู่แล้ว ยกเว้นข้อสอบรุ่นเก่าก่อนเปลี่ยนมาผูกกับหัวข้อย่อยที่ยังไม่ถูก backfill)
     retake_lesson = None
     if attempt.mode == 'exam':
-        lessons_qs = Lesson.objects.filter(grade=attempt.grade or 'm4')
-        if attempt.chapter:
-            lessons_qs = lessons_qs.filter(chapter=attempt.chapter)
-        retake_lesson = lessons_qs.first()
+        if attempt.lesson:
+            retake_lesson = attempt.lesson
+        else:
+            lessons_qs = Lesson.objects.filter(grade=attempt.grade or 'm4')
+            if attempt.chapter:
+                lessons_qs = lessons_qs.filter(chapter=attempt.chapter)
+            retake_lesson = lessons_qs.first()
 
     return render(request, 'reanBio/attempt_result.html', {
         'attempt': attempt,
@@ -505,6 +501,30 @@ def _dashboard_context(user):
         avg2 = sum(a.percent for a in second_half) / len(second_half)
         return round(avg2 - avg1, 1)
 
+    # 📌 คะแนนรวมถ่วงน้ำหนักแบบ GPA: ใช้คะแนนข้อสอบ "ล่าสุด" ของแต่ละหัวข้อย่อย คูณน้ำหนัก (credit_weight)
+    # ของหัวข้อนั้น แล้วหารด้วยผลรวมน้ำหนัก เหมือนเกรดเฉลี่ยที่แต่ละวิชามีหน่วยกิตไม่เท่ากัน
+    latest_exam_by_lesson = {}
+    for a in exam_attempts:  # exam_attempts เรียงจากเก่า -> ใหม่อยู่แล้ว ตัวหลังจะทับตัวก่อนหน้า เหลือแค่ครั้งล่าสุด
+        if a.lesson_id:
+            latest_exam_by_lesson[a.lesson_id] = a
+
+    weighted_rows = []
+    total_weight = 0.0
+    weighted_sum = 0.0
+    for a in latest_exam_by_lesson.values():
+        weight = a.lesson.credit_weight
+        weighted_rows.append({
+            'lesson': a.lesson,
+            'percent': a.percent,
+            'weight': weight,
+            'submitted_at': a.submitted_at,
+            'attempt_pk': a.pk,
+        })
+        total_weight += weight
+        weighted_sum += a.percent * weight
+    weighted_rows.sort(key=lambda r: (r['lesson'].chapter, r['lesson'].subtopic_code))
+    weighted_overall = round(weighted_sum / total_weight, 1) if total_weight else None
+
     return {
         'practice_attempts': list(reversed(practice_attempts)),
         'exam_attempts': list(reversed(exam_attempts)),
@@ -513,6 +533,9 @@ def _dashboard_context(user):
         'practice_trend': trend(practice_attempts),
         'exam_trend': trend(exam_attempts),
         'total_attempts': len(attempts),
+        'weighted_overall': weighted_overall,
+        'weighted_rows': weighted_rows,
+        'weighted_total': round(total_weight, 1) if total_weight else None,
     }
 
 
