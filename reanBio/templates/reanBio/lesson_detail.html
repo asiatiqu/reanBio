@@ -88,21 +88,93 @@
         {% endif %}
 
         <!-- ตัวอย่างพื้นที่วางสื่อการเรียน -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+        <div class="grid grid-cols-1 {% if lesson.subtopic_code == '1.1' %}md:grid-cols-1{% else %}md:grid-cols-2{% endif %} gap-4 pt-4">
             <div class="p-6 border-2 border-dashed border-slate-200 rounded-3xl text-center space-y-2">
                 <span class="text-4xl">🎬</span>
                 <p class="font-bold text-bio-dark text-sm">วิดีโอการสอน</p>
                 <p class="text-xs text-slate-400">เตรียมพบกับวิดีโออธิบายเนื้อหาอย่างละเอียด</p>
             </div>
+
+            {% if lesson.subtopic_code == '1.1' %}
+            <!-- 📌 สื่อ 3D Interactive (Three.js) — ทดลองทำก่อนสำหรับหัวข้อ 1.1 ธรรมชาติของสิ่งมีชีวิต -->
+            <div class="p-6 bg-white border border-slate-100 rounded-3xl space-y-4">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <h3 class="font-bold text-bio-dark text-sm flex items-center gap-2">
+                        🧫 สื่อ 3D Interactive: ระดับการจัดระบบของสิ่งมีชีวิต
+                    </h3>
+                    <span class="text-xs text-slate-400">ลากเมาส์เพื่อหมุน · เลื่อนล้อเพื่อซูม</span>
+                </div>
+
+                <div id="org3d-canvas" class="w-full h-72 md:h-96 rounded-2xl bg-gradient-to-br from-bio-light/40 to-white border border-bio-light overflow-hidden" style="min-height:280px"></div>
+
+                <div class="flex flex-wrap gap-2 justify-center" id="org3d-level-buttons"></div>
+
+                <div class="p-4 bg-bio-light/40 rounded-2xl text-center" id="org3d-caption">
+                    <p class="font-bold text-bio-dark text-sm" id="org3d-caption-name"></p>
+                    <p class="text-xs text-slate-500 mt-1" id="org3d-caption-desc"></p>
+                </div>
+            </div>
+            {% else %}
             <div class="p-6 border-2 border-dashed border-slate-200 rounded-3xl text-center space-y-2">
                 <span class="text-4xl">🧫</span>
                 <p class="font-bold text-bio-dark text-sm">สื่อ 3D Interactive / Flashcards</p>
                 <p class="text-xs text-slate-400">สำรวจแบบจำลองโครงสร้างทางชีววิทยา</p>
             </div>
+            {% endif %}
         </div>
     </div>
 
 </div>
+
+{% if lesson.subtopic_code == '1.1' %}
+<script type="importmap">
+{
+    "imports": {
+        "three": "{% static 'reanBio/js/three.module.min.js' %}",
+        "three/addons/controls/OrbitControls.js": "{% static 'reanBio/js/OrbitControls.js' %}"
+    }
+}
+</script>
+<script type="module">
+    import { initOrganizationScene, ORGANIZATION_LEVELS } from "{% static 'reanBio/js/organization_3d.js' %}";
+
+    const container = document.getElementById('org3d-canvas');
+    const buttonsWrap = document.getElementById('org3d-level-buttons');
+    const nameEl = document.getElementById('org3d-caption-name');
+    const descEl = document.getElementById('org3d-caption-desc');
+
+    function updateCaption(level) {
+        nameEl.textContent = `${level.icon} ${level.name}`;
+        descEl.textContent = level.desc;
+    }
+
+    function renderButtons(scene) {
+        buttonsWrap.innerHTML = '';
+        ORGANIZATION_LEVELS.forEach((level, i) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = `${level.icon} ${level.name.split(' ')[0]}`;
+            btn.className = 'org3d-level-btn px-3 py-1.5 rounded-full text-xs font-bold border transition ' +
+                (i === scene.getCurrentIndex() ? 'bg-bio-main text-white border-bio-main' : 'bg-white text-bio-dark border-bio-light hover:bg-bio-light/60');
+            btn.addEventListener('click', () => {
+                const level = scene.showLevel(i);
+                updateCaption(level);
+                [...buttonsWrap.children].forEach((b, bi) => {
+                    b.className = 'org3d-level-btn px-3 py-1.5 rounded-full text-xs font-bold border transition ' +
+                        (bi === i ? 'bg-bio-main text-white border-bio-main' : 'bg-white text-bio-dark border-bio-light hover:bg-bio-light/60');
+                });
+            });
+            buttonsWrap.appendChild(btn);
+        });
+    }
+
+    if (container) {
+        const scene = initOrganizationScene(container);
+        renderButtons(scene);
+        updateCaption(ORGANIZATION_LEVELS[scene.getCurrentIndex()]);
+    }
+</script>
+{% endif %}
 
 <script>
     // 🧠 ตรวจคำตอบ checkpoint ระหว่างเนื้อหาแบบทันที ฝั่งเบราว์เซอร์ล้วนๆ ไม่เก็บคะแนน แค่บอกถูก/ผิด
