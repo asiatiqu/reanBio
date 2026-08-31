@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}กำลังทำแบบทดสอบ - reanBio{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-4xl space-y-6">
+
+    <div class="bg-gradient-to-r from-bio-main to-bio-dark text-white p-8 md:p-10 rounded-[35px] shadow-lg">
+        <span class="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold">{{ attempt.quiz.classroom.name }}</span>
+        <h1 class="text-2xl md:text-3xl font-extrabold mt-2">{{ attempt.quiz.title }}</h1>
+        <p class="text-sm opacity-90 mt-1">ตอบให้ครบทุกข้อแล้วกดส่งคำตอบด้านล่าง ({{ answers|length }} ข้อ)</p>
+    </div>
+
+    <form method="post" class="space-y-5">
+        {% csrf_token %}
+        {% for ans in answers %}
+        <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-md p-6 md:p-8">
+            <p class="font-bold text-bio-dark mb-4">{{ forloop.counter }}. {{ ans.question.text }}</p>
+
+            {% if ans.question.question_type == 'mcq' %}
+            <div class="space-y-2">
+                {% for choice in ans.question.choices.all %}
+                <label class="flex items-center gap-3 p-3 rounded-2xl border border-slate-100 hover:bg-bio-light/50 cursor-pointer transition">
+                    <input type="radio" name="q{{ ans.id }}" value="{{ choice.pk }}" class="accent-bio-main w-4 h-4" required>
+                    <span class="text-sm text-slate-700">{{ choice.text }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            {% else %}
+            <textarea name="q{{ ans.id }}" rows="3" placeholder="พิมพ์คำตอบของคุณที่นี่..."
+                class="w-full px-4 py-3 bg-bio-light/40 border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition"></textarea>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <button type="submit" class="w-full py-4 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-center shadow transition">
+            ส่งคำตอบและตรวจผล
+        </button>
+    </form>
+
+</div>
+{% endblock %}

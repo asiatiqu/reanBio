@@ -15,7 +15,11 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.html import escape
 
-from .models import UserProfile, Classroom, Lesson, Question, Choice, Attempt, AttemptAnswer, Checkpoint, LessonView
+from .models import (
+    UserProfile, Classroom, Lesson, Question, Choice, Attempt, AttemptAnswer, Checkpoint, LessonView,
+    ClassroomVideo, ClassroomFile, ClassroomQuiz, ClassroomQuizQuestion, ClassroomQuizChoice,
+    ClassroomQuizAttempt, ClassroomQuizAnswer,
+)
 from .forms import UserSignUpForm
 
 
@@ -297,7 +301,209 @@ def join_classroom_view(request):
 @login_required
 def classroom_detail_view(request, code):
     classroom = get_object_or_404(Classroom, code=code)
-    return render(request, 'reanBio/classroom_detail.html', {'classroom': classroom})
+    return render(request, 'reanBio/classroom_detail.html', {
+        'classroom': classroom,
+        'videos': classroom.videos.all(),
+        'quizzes': classroom.quizzes.all(),
+        'files': classroom.files.all(),
+    })
+
+
+# ============================================================
+# 📌 6. เครื่องมือจัดการห้องเรียนสำหรับคุณครู (คลิปวิดีโอ / ไฟล์เอกสาร / แบบทดสอบที่สร้างเอง)
+# ============================================================
+
+def _can_manage_classroom(user, classroom):
+    """สิทธิ์จัดการเครื่องมือของห้องเรียน: เป็นคุณครูเจ้าของห้อง หรือเป็นคุณครูคนอื่น (ตามสิทธิ์เดิมของหน้านี้)"""
+    return user.is_authenticated and (user == classroom.teacher or getattr(user, 'is_teacher', False))
+
+
+@login_required
+def classroom_add_video_view(request, code):
+    classroom = get_object_or_404(Classroom, code=code)
+    if not _can_manage_classroom(request.user, classroom):
+        return redirect('classroom_detail', code=code)
+
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        youtube_url = request.POST.get('youtube_url', '').strip()
+        video_file = request.FILES.get('video_file')
+        if not title or not (youtube_url or video_file):
+            messages.error(request, 'กรุณาใส่ชื่อคลิป และลิงก์ YouTube หรือไฟล์วิดีโออย่างน้อย 1 อย่าง')
+            return redirect('classroom_add_video', code=code)
+
+        ClassroomVideo.objects.create(
+            classroom=classroom, title=title, youtube_url=youtube_url,
+            video_file=video_file, added_by=request.user,
+        )
+        messages.success(request, 'เพิ่มคลิปวิดีโอเรียบร้อยแล้ว')
+        return redirect('classroom_detail', code=code)
+
+    return render(request, 'reanBio/classroom_add_video.html', {'classroom': classroom})
+
+
+@login_required
+def classroom_add_file_view(request, code):
+    classroom = get_object_or_404(Classroom, code=code)
+    if not _can_manage_classroom(request.user, classroom):
+        return redirect('classroom_detail', code=code)
+
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        uploaded_file = request.FILES.get('file')
+        if not title or not uploaded_file:
+            messages.error(request, 'กรุณาใส่ชื่อเอกสารและเลือกไฟล์')
+            return redirect('classroom_add_file', code=code)
+        if uploaded_file.size > 20 * 1024 * 1024:
+            messages.error(request, 'ไฟล์มีขนาดใหญ่เกินไป (จำกัดไม่เกิน 20MB)')
+            return redirect('classroom_add_file', code=code)
+
+        ClassroomFile.objects.create(
+            classroom=classroom, title=title, file=uploaded_file, added_by=request.user,
+        )
+        messages.success(request, 'อัปโหลดไฟล์การสอนเรียบร้อยแล้ว')
+        return redirect('classroom_detail', code=code)
+
+    return render(request, 'reanBio/classroom_add_file.html', {'classroom': classroom})
+
+
+@login_required
+def classroom_add_quiz_view(request, code):
+    classroom = get_object_or_404(Classroom, code=code)
+    if not _can_manage_classroom(request.user, classroom):
+        return redirect('classroom_detail', code=code)
+
+    if request.method == 'POST':
+        title = request.POST.get('quiz_title', '').strip()
+        indices_raw = request.POST.get('question_indices', '').strip()
+        indices = [n for n in indices_raw.split(',') if n.strip() != '']
+
+        if not title or not indices:
+            messages.error(request, 'กรุณาใส่ชื่อแบบทดสอบและคำถามอย่างน้อย 1 ข้อ')
+            return redirect('classroom_add_quiz', code=code)
+
+        quiz = ClassroomQuiz.objects.create(classroom=classroom, title=title, created_by=request.user)
+
+        order = 0
+        for n in indices:
+            q_text = request.POST.get(f'q_text_{n}', '').strip()
+            if not q_text:
+                continue
+            order += 1
+            q_type = request.POST.get(f'q_type_{n}', 'mcq')
+            try:
+                points = max(1, int(request.POST.get(f'q_points_{n}', 1)))
+            except (ValueError, TypeError):
+                points = 1
+
+            if q_type == 'text':
+                accepted_raw = request.POST.get(f'q_accepted_{n}', '').strip()
+                accepted_answers = [a.strip() for a in accepted_raw.split(',') if a.strip()]
+                ClassroomQuizQuestion.objects.create(
+                    quiz=quiz, order=order, question_type='text', text=q_text,
+                    points=points, accepted_answers=accepted_answers,
+                )
+            else:
+                question = ClassroomQuizQuestion.objects.create(
+                    quiz=quiz, order=order, question_type='mcq', text=q_text, points=points,
+                )
+                choice_texts = request.POST.getlist(f'q_choice_{n}')
+                correct_idx_raw = request.POST.get(f'q_correct_{n}', '')
+                added_choice = False
+                for c_idx, c_text in enumerate(choice_texts):
+                    c_text = c_text.strip()
+                    if not c_text:
+                        continue
+                    ClassroomQuizChoice.objects.create(
+                        question=question, order=c_idx + 1, text=c_text,
+                        is_correct=(str(c_idx) == correct_idx_raw),
+                    )
+                    added_choice = True
+                if not added_choice:
+                    question.delete()
+                    order -= 1
+
+        if quiz.questions.count() == 0:
+            quiz.delete()
+            messages.error(request, 'กรุณากรอกคำถามให้ครบถ้วนอย่างน้อย 1 ข้อ (ข้อแบบเลือกคำตอบต้องมีตัวเลือกด้วย)')
+            return redirect('classroom_add_quiz', code=code)
+
+        messages.success(request, 'สร้างแบบทดสอบเรียบร้อยแล้ว')
+        return redirect('classroom_detail', code=code)
+
+    return render(request, 'reanBio/classroom_add_quiz.html', {'classroom': classroom})
+
+
+@login_required
+def classroom_quiz_start_view(request, quiz_pk):
+    quiz = get_object_or_404(ClassroomQuiz, pk=quiz_pk)
+    if getattr(request.user, 'is_teacher', False):
+        messages.info(request, "บทบาทคุณครูใช้สำหรับสร้างแบบทดสอบเท่านั้น ไม่มีการทำแบบทดสอบ")
+        return redirect('classroom_detail', code=quiz.classroom.code)
+
+    questions = list(quiz.questions.prefetch_related('choices').all())
+    if not questions:
+        messages.error(request, 'แบบทดสอบนี้ยังไม่มีคำถาม')
+        return redirect('classroom_detail', code=quiz.classroom.code)
+
+    attempt = ClassroomQuizAttempt.objects.create(
+        quiz=quiz, user=request.user, max_score=sum(q.points for q in questions),
+    )
+    for i, q in enumerate(questions, start=1):
+        ClassroomQuizAnswer.objects.create(attempt=attempt, question=q, order=i)
+
+    return redirect('classroom_quiz_take', attempt_pk=attempt.pk)
+
+
+@login_required
+def classroom_quiz_take_view(request, attempt_pk):
+    attempt = get_object_or_404(ClassroomQuizAttempt, pk=attempt_pk, user=request.user)
+    if attempt.submitted_at:
+        return redirect('classroom_quiz_result', attempt_pk=attempt.pk)
+
+    answers = list(
+        attempt.answers.select_related('question')
+        .prefetch_related('question__choices')
+        .order_by('order')
+    )
+
+    if request.method == 'POST':
+        total_score = 0
+        for ans in answers:
+            q = ans.question
+            if q.question_type == 'mcq':
+                choice_id = request.POST.get(f'q{ans.id}')
+                selected = q.choices.filter(pk=choice_id).first() if choice_id else None
+                is_correct = bool(selected and selected.is_correct)
+                ans.selected_choice = selected
+                ans.is_correct = is_correct
+                ans.points_earned = q.points if is_correct else 0
+            else:
+                text_val = request.POST.get(f'q{ans.id}', '').strip()
+                is_correct = _grade_text_answer(q, text_val)
+                ans.text_answer = text_val
+                ans.is_correct = is_correct
+                ans.points_earned = q.points if is_correct else 0
+            ans.save()
+            total_score += ans.points_earned
+
+        attempt.score = total_score
+        attempt.submitted_at = timezone.now()
+        attempt.save()
+        return redirect('classroom_quiz_result', attempt_pk=attempt.pk)
+
+    return render(request, 'reanBio/classroom_quiz_take.html', {'attempt': attempt, 'answers': answers})
+
+
+@login_required
+def classroom_quiz_result_view(request, attempt_pk):
+    attempt = get_object_or_404(ClassroomQuizAttempt, pk=attempt_pk, user=request.user)
+    answers = (
+        attempt.answers.select_related('question', 'selected_choice')
+        .prefetch_related('question__choices')
+        .order_by('order')
+    )
+    return render(request, 'reanBio/classroom_quiz_result.html', {'attempt': attempt, 'answers': answers})
 
 @login_required
 def profile(request):

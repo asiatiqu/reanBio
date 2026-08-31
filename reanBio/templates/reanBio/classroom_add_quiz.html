@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}สร้างแบบทดสอบ - {{ classroom.name }}{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-3xl space-y-6">
+
+    <div class="bg-gradient-to-r from-bio-main to-bio-dark text-white p-8 md:p-10 rounded-[35px] shadow-lg">
+        <span class="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold">{{ classroom.name }}</span>
+        <h1 class="text-2xl md:text-3xl font-extrabold mt-2">สร้างแบบทดสอบใหม่</h1>
+        <p class="text-sm opacity-90 mt-1">เขียนคำถามเอง เลือกได้ทั้งแบบปรนัย (เลือกคำตอบ) และแบบอัตนัย (พิมพ์คำตอบ)</p>
+    </div>
+
+    {% if messages %}
+    <div class="space-y-2">
+        {% for message in messages %}
+        <div class="px-4 py-3 rounded-2xl text-sm font-semibold {% if message.tags == 'error' %}bg-red-50 text-red-600 border border-red-100{% else %}bg-green-50 text-green-700 border border-green-100{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" id="quiz-form" class="space-y-5">
+        {% csrf_token %}
+        <input type="hidden" name="question_indices" id="question_indices" value="">
+
+        <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-md p-6 md:p-8">
+            <label class="block text-sm font-bold text-bio-dark mb-1.5">ชื่อแบบทดสอบ</label>
+            <input type="text" name="quiz_title" required placeholder="เช่น แบบทดสอบท้ายบทที่ 1"
+                class="w-full px-4 py-3 bg-bio-light/40 border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition">
+        </div>
+
+        <div id="questions-container" class="space-y-5"></div>
+
+        <button type="button" onclick="qzAddQuestion()"
+            class="w-full py-3.5 bg-white border-2 border-dashed border-bio-main text-bio-dark font-bold rounded-2xl text-sm transition hover:bg-bio-light">
+            + เพิ่มคำถาม
+        </button>
+
+        <div class="flex gap-3 pt-2">
+            <a href="{% url 'classroom_detail' code=classroom.code %}" class="flex-1 py-3.5 bg-white border-2 border-bio-main text-bio-dark font-bold rounded-2xl text-center text-sm shadow transition hover:bg-bio-light">
+                ยกเลิก
+            </a>
+            <button type="submit" class="flex-1 py-3.5 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-sm shadow transition">
+                บันทึกแบบทดสอบ
+            </button>
+        </div>
+    </form>
+
+</div>
+
+<template id="question-template">
+    <div class="qz-question bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-md p-6 md:p-8 space-y-4" data-index="">
+        <div class="flex items-center justify-between">
+            <span class="text-sm font-bold text-bio-dark qz-question-label">ข้อที่ 1</span>
+            <button type="button" onclick="qzRemoveQuestion(this)" class="text-xs font-bold text-red-500 hover:text-red-700">ลบข้อนี้</button>
+        </div>
+
+        <div>
+            <label class="block text-xs font-bold text-slate-500 mb-1">โจทย์คำถาม</label>
+            <textarea class="qz-text w-full px-4 py-3 bg-bio-light/40 border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition" rows="2" required></textarea>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-4">
+            <div class="flex items-center gap-2">
+                <label class="text-xs font-bold text-slate-500">ประเภทคำถาม</label>
+                <select class="qz-type px-3 py-2 bg-bio-light/50 border border-bio-light rounded-full text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-bio-main" onchange="qzToggleType(this)">
+                    <option value="mcq">ปรนัย (เลือกคำตอบ)</option>
+                    <option value="text">อัตนัย (พิมพ์คำตอบ)</option>
+                </select>
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="text-xs font-bold text-slate-500">คะแนน</label>
+                <input type="number" class="qz-points w-20 px-3 py-2 bg-bio-light/50 border border-bio-light rounded-full text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-bio-main" value="1" min="1">
+            </div>
+        </div>
+
+        <div class="qz-mcq-block space-y-2">
+            <label class="block text-xs font-bold text-slate-500 mb-1">ตัวเลือก (คลิกวงกลมหน้าตัวเลือกที่ถูกต้อง)</label>
+            <div class="qz-choices space-y-2"></div>
+            <button type="button" onclick="qzAddChoice(this)" class="text-xs font-bold text-bio-main hover:text-bio-dark">+ เพิ่มตัวเลือก</button>
+        </div>
+
+        <div class="qz-text-block hidden">
+            <label class="block text-xs font-bold text-slate-500 mb-1">คำตอบที่ยอมรับ (คั่นด้วยจุลภาค ถ้ามีหลายคำตอบที่ถูกต้อง)</label>
+            <input type="text" class="qz-accepted w-full px-4 py-3 bg-bio-light/40 border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition" placeholder="เช่น ไมโทคอนเดรีย, mitochondria">
+        </div>
+    </div>
+</template>
+
+<template id="choice-template">
+    <label class="flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-bio-light/40 transition">
+        <input type="radio" class="qz-choice-correct accent-bio-main w-4 h-4">
+        <input type="text" class="qz-choice-text flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main" placeholder="ข้อความตัวเลือก">
+        <button type="button" onclick="this.closest('label').remove()" class="text-slate-300 hover:text-red-500 text-xs font-bold">ลบ</button>
+    </label>
+</template>
+
+<script>
+    let qzCounter = 0;
+    let qzActiveIndices = [];
+
+    function qzAddQuestion() {
+        const idx = qzCounter++;
+        qzActiveIndices.push(idx);
+
+        const tpl = document.getElementById('question-template').content.cloneNode(true);
+        const block = tpl.querySelector('.qz-question');
+        block.dataset.index = idx;
+        document.getElementById('questions-container').appendChild(tpl);
+
+        // เริ่มต้นให้มีตัวเลือก 2 ข้อ
+        const newBlock = document.querySelector(`.qz-question[data-index="${idx}"]`);
+        const addChoiceBtn = newBlock.querySelector('.qz-mcq-block button');
+        qzAddChoice(addChoiceBtn);
+        qzAddChoice(addChoiceBtn);
+
+        qzRenumber();
+    }
+
+    function qzAddChoice(btnEl) {
+        if (!btnEl) return;
+        const block = btnEl.closest('.qz-question');
+        const choicesContainer = block.querySelector('.qz-choices');
+        const tpl = document.getElementById('choice-template').content.cloneNode(true);
+        const radio = tpl.querySelector('.qz-choice-correct');
+        radio.name = 'qz-correct-' + block.dataset.index;
+        choicesContainer.appendChild(tpl);
+    }
+
+    function qzToggleType(selectEl) {
+        const block = selectEl.closest('.qz-question');
+        const isText = selectEl.value === 'text';
+        block.querySelector('.qz-mcq-block').classList.toggle('hidden', isText);
+        block.querySelector('.qz-text-block').classList.toggle('hidden', !isText);
+    }
+
+    function qzRemoveQuestion(btnEl) {
+        const block = btnEl.closest('.qz-question');
+        const idx = parseInt(block.dataset.index, 10);
+        qzActiveIndices = qzActiveIndices.filter(i => i !== idx);
+        block.remove();
+        qzRenumber();
+    }
+
+    function qzRenumber() {
+        document.querySelectorAll('.qz-question').forEach((block, i) => {
+            block.querySelector('.qz-question-label').textContent = 'ข้อที่ ' + (i + 1);
+        });
+    }
+
+    function qzSyncBeforeSubmit(e) {
+        // ล้าง input ชื่อเดิมทั้งหมดก่อน (กันซ้ำเวลากด submit ซ้อน) แล้วสร้างใหม่ตาม state ปัจจุบัน
+        document.querySelectorAll('#quiz-form .qz-generated').forEach(el => el.remove());
+
+        const indices = [];
+        document.querySelectorAll('.qz-question').forEach(block => {
+            const idx = block.dataset.index;
+            indices.push(idx);
+
+            const addHidden = (name, value) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = value;
+                input.classList.add('qz-generated');
+                document.getElementById('quiz-form').appendChild(input);
+            };
+
+            addHidden('q_text_' + idx, block.querySelector('.qz-text').value.trim());
+            const qType = block.querySelector('.qz-type').value;
+            addHidden('q_type_' + idx, qType);
+            addHidden('q_points_' + idx, block.querySelector('.qz-points').value || '1');
+
+            if (qType === 'text') {
+                addHidden('q_accepted_' + idx, block.querySelector('.qz-accepted').value.trim());
+            } else {
+                const labels = block.querySelectorAll('.qz-choices label');
+                let correctIdx = '';
+                labels.forEach((label, cIdx) => {
+                    const text = label.querySelector('.qz-choice-text').value.trim();
+                    addHidden('q_choice_' + idx, text);
+                    if (label.querySelector('.qz-choice-correct').checked) {
+                        correctIdx = String(cIdx);
+                    }
+                });
+                addHidden('q_correct_' + idx, correctIdx);
+            }
+        });
+
+        document.getElementById('question_indices').value = indices.join(',');
+    }
+
+    document.getElementById('quiz-form').addEventListener('submit', qzSyncBeforeSubmit);
+
+    // เริ่มต้นด้วยคำถามว่าง 1 ข้อ
+    qzAddQuestion();
+</script>
+{% endblock %}

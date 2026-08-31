@@ -218,3 +218,133 @@ class LessonView(models.Model):
 
     def __str__(self):
         return f"{self.user} เข้าชม {self.lesson} ล่าสุดเมื่อ {self.viewed_at}"
+
+
+# 📌 6. เครื่องมือจัดการห้องเรียนสำหรับคุณครู (คลิปวิดีโอ / ไฟล์เอกสาร / แบบทดสอบที่สร้างเอง)
+class ClassroomVideo(models.Model):
+    classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='videos', verbose_name="ห้องเรียน")
+    title = models.CharField(max_length=200, verbose_name="ชื่อคลิป")
+    youtube_url = models.URLField(blank=True, default="", verbose_name="ลิงก์ YouTube")
+    video_file = models.FileField(upload_to='classroom_videos/%Y/%m/', blank=True, null=True, verbose_name="ไฟล์วิดีโอ")
+    added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name="ผู้เพิ่ม")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.classroom}] {self.title}"
+
+    @property
+    def youtube_embed_url(self):
+        """แปลงลิงก์ YouTube หลายรูปแบบ (watch?v=, youtu.be/, embed/) ให้เป็นลิงก์ embed"""
+        import re as _re
+        if not self.youtube_url:
+            return ""
+        m = _re.search(r'(?:v=|youtu\.be/|embed/)([A-Za-z0-9_-]{6,})', self.youtube_url)
+        return f"https://www.youtube.com/embed/{m.group(1)}" if m else ""
+
+
+class ClassroomFile(models.Model):
+    classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='files', verbose_name="ห้องเรียน")
+    title = models.CharField(max_length=200, verbose_name="ชื่อเอกสาร")
+    file = models.FileField(upload_to='classroom_files/%Y/%m/', verbose_name="ไฟล์เอกสาร")
+    added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name="ผู้อัปโหลด")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f"[{self.classroom}] {self.title}"
+
+    @property
+    def filename(self):
+        return self.file.name.rsplit('/', 1)[-1]
+
+
+class ClassroomQuiz(models.Model):
+    classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='quizzes', verbose_name="ห้องเรียน")
+    title = models.CharField(max_length=200, verbose_name="ชื่อแบบทดสอบ")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name="ผู้สร้าง")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name_plural = "Classroom quizzes"
+
+    def __str__(self):
+        return f"[{self.classroom}] {self.title}"
+
+    @property
+    def question_count(self):
+        return self.questions.count()
+
+
+class ClassroomQuizQuestion(models.Model):
+    QUESTION_TYPES = (
+        ('mcq', 'ปรนัย (เลือกคำตอบ)'),
+        ('text', 'อัตนัย (พิมพ์คำตอบ)'),
+    )
+    quiz = models.ForeignKey(ClassroomQuiz, on_delete=models.CASCADE, related_name='questions', verbose_name="แบบทดสอบ")
+    order = models.PositiveIntegerField(default=1, verbose_name="ลำดับข้อ")
+    question_type = models.CharField(max_length=4, choices=QUESTION_TYPES, default='mcq', verbose_name="ประเภทคำถาม")
+    text = models.TextField(verbose_name="โจทย์คำถาม")
+    points = models.PositiveIntegerField(default=1, verbose_name="คะแนนเต็มของข้อนี้")
+    accepted_answers = models.JSONField(default=list, blank=True, verbose_name="คำตอบที่ยอมรับ (อัตนัย)")
+
+    class Meta:
+        ordering = ['quiz', 'order']
+
+    def __str__(self):
+        return f"[{self.quiz}] ข้อ {self.order}"
+
+
+class ClassroomQuizChoice(models.Model):
+    question = models.ForeignKey(ClassroomQuizQuestion, on_delete=models.CASCADE, related_name='choices', verbose_name="คำถาม")
+    order = models.PositiveIntegerField(default=1)
+    text = models.CharField(max_length=500, verbose_name="ข้อความตัวเลือก")
+    is_correct = models.BooleanField(default=False, verbose_name="เป็นคำตอบที่ถูกต้อง")
+
+    class Meta:
+        ordering = ['question', 'order']
+
+    def __str__(self):
+        return self.text[:60]
+
+
+class ClassroomQuizAttempt(models.Model):
+    quiz = models.ForeignKey(ClassroomQuiz, on_delete=models.CASCADE, related_name='attempts', verbose_name="แบบทดสอบ")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='classroom_quiz_attempts', verbose_name="ผู้ทำ")
+    score = models.FloatField(default=0, verbose_name="คะแนนที่ได้")
+    max_score = models.FloatField(default=0, verbose_name="คะแนนเต็ม")
+    started_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(null=True, blank=True, verbose_name="เวลาที่ส่งคำตอบ")
+
+    class Meta:
+        ordering = ['-started_at']
+
+    def __str__(self):
+        return f"{self.user} - {self.quiz} ({self.score}/{self.max_score})"
+
+    @property
+    def percent(self):
+        if not self.max_score:
+            return 0
+        return round(self.score / self.max_score * 100, 1)
+
+
+class ClassroomQuizAnswer(models.Model):
+    attempt = models.ForeignKey(ClassroomQuizAttempt, on_delete=models.CASCADE, related_name='answers', verbose_name="การทำแบบทดสอบ")
+    question = models.ForeignKey(ClassroomQuizQuestion, on_delete=models.CASCADE, related_name='attempt_answers', verbose_name="คำถาม")
+    order = models.PositiveIntegerField(default=1, verbose_name="ลำดับที่แสดงในการทำครั้งนี้")
+    selected_choice = models.ForeignKey(ClassroomQuizChoice, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="ตัวเลือกที่เลือก")
+    text_answer = models.TextField(blank=True, default="", verbose_name="คำตอบที่พิมพ์")
+    is_correct = models.BooleanField(default=False, verbose_name="ตอบถูกหรือไม่")
+    points_earned = models.FloatField(default=0, verbose_name="คะแนนที่ได้ในข้อนี้")
+
+    class Meta:
+        ordering = ['attempt', 'order']
+
+    def __str__(self):
+        return f"Attempt#{self.attempt_id} - Q{self.question_id}"

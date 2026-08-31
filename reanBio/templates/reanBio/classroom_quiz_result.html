@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ผลคะแนน - reanBio{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-4xl space-y-6">
+
+    <div class="bg-gradient-to-r from-bio-main to-bio-dark text-white p-8 md:p-10 rounded-[35px] shadow-lg flex flex-col md:flex-row justify-between items-center gap-6">
+        <div>
+            <span class="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold">{{ attempt.quiz.classroom.name }}</span>
+            <h1 class="text-2xl md:text-3xl font-extrabold mt-2">{{ attempt.quiz.title }}</h1>
+            <p class="text-sm opacity-90 mt-1">ส่งคำตอบเมื่อ {{ attempt.submitted_at|date:"d/m/Y H:i" }}</p>
+        </div>
+        <div class="bg-white/20 backdrop-blur-md rounded-3xl px-8 py-5 text-center">
+            <p class="text-4xl font-extrabold">{{ attempt.percent }}%</p>
+            <p class="text-xs opacity-90 mt-1">{{ attempt.score|floatformat:0 }} / {{ attempt.max_score|floatformat:0 }} คะแนน</p>
+        </div>
+    </div>
+
+    <div class="space-y-4">
+        {% for ans in answers %}
+        <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-md p-6 md:p-8 {% if ans.is_correct %}border-l-4 border-l-green-400{% else %}border-l-4 border-l-red-300{% endif %}">
+            <div class="flex items-start justify-between gap-3">
+                <p class="font-bold text-bio-dark mb-3">{{ forloop.counter }}. {{ ans.question.text }}</p>
+                <span class="shrink-0 px-3 py-1 rounded-full text-xs font-bold {% if ans.is_correct %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-600{% endif %}">
+                    {% if ans.is_correct %}ถูก{% else %}ยังไม่ถูก{% endif %} ({{ ans.points_earned|floatformat:0 }}/{{ ans.question.points }})
+                </span>
+            </div>
+
+            {% if ans.question.question_type == 'mcq' %}
+            <div class="space-y-1.5 text-sm">
+                {% for choice in ans.question.choices.all %}
+                <div class="px-3 py-2 rounded-xl
+                    {% if choice.is_correct %}bg-green-50 text-green-700 font-semibold
+                    {% elif choice == ans.selected_choice %}bg-red-50 text-red-600
+                    {% else %}text-slate-500{% endif %}">
+                    {{ choice.text }}
+                    {% if choice.is_correct %} (คำตอบที่ถูกต้อง){% elif choice == ans.selected_choice %} (คำตอบของคุณ){% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-600 bg-bio-light/50 rounded-xl px-3 py-2">
+                คำตอบของคุณ: {{ ans.text_answer|default:"(ไม่ได้ตอบ)" }}
+            </p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="flex flex-col md:flex-row gap-4">
+        <a href="{% url 'classroom_detail' code=attempt.quiz.classroom.code %}" class="flex-1 py-3.5 bg-white border-2 border-bio-main text-bio-dark font-bold rounded-2xl text-center text-sm shadow transition hover:bg-bio-light">
+            กลับไปห้องเรียน
+        </a>
+        <a href="{% url 'profile' %}" class="flex-1 py-3.5 bg-white border-2 border-bio-main text-bio-dark font-bold rounded-2xl text-center text-sm shadow transition hover:bg-bio-light">
+            ดูแดชบอร์ดสรุปผล
+        </a>
+    </div>
+
+</div>
+{% endblock %}

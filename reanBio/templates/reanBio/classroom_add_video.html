@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}เพิ่มคลิปวิดีโอ - {{ classroom.name }}{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-2xl space-y-6">
+
+    <div class="bg-gradient-to-r from-bio-main to-bio-dark text-white p-8 md:p-10 rounded-[35px] shadow-lg">
+        <span class="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold">{{ classroom.name }}</span>
+        <h1 class="text-2xl md:text-3xl font-extrabold mt-2">เพิ่มคลิปวิดีโอการสอน</h1>
+        <p class="text-sm opacity-90 mt-1">ใส่ลิงก์ YouTube หรืออัปโหลดไฟล์วิดีโอโดยตรงก็ได้ (เลือกอย่างใดอย่างหนึ่ง)</p>
+    </div>
+
+    {% if messages %}
+    <div class="space-y-2">
+        {% for message in messages %}
+        <div class="px-4 py-3 rounded-2xl text-sm font-semibold {% if message.tags == 'error' %}bg-red-50 text-red-600 border border-red-100{% else %}bg-green-50 text-green-700 border border-green-100{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-md p-6 md:p-8 space-y-5">
+        {% csrf_token %}
+
+        <div>
+            <label class="block text-sm font-bold text-bio-dark mb-1.5">ชื่อคลิป</label>
+            <input type="text" name="title" required placeholder="เช่น เซลล์พืชและเซลล์สัตว์"
+                class="w-full px-4 py-3 bg-bio-light/40 border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition">
+        </div>
+
+        <div>
+            <label class="block text-sm font-bold text-bio-dark mb-1.5">ลิงก์ YouTube</label>
+            <input type="url" name="youtube_url" placeholder="https://www.youtube.com/watch?v=..."
+                class="w-full px-4 py-3 bg-bio-light/40 border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition">
+        </div>
+
+        <div class="flex items-center gap-3 text-xs font-bold text-slate-400">
+            <div class="flex-1 h-px bg-slate-200"></div>
+            หรือ
+            <div class="flex-1 h-px bg-slate-200"></div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-bold text-bio-dark mb-1.5">อัปโหลดไฟล์วิดีโอ</label>
+            <input type="file" name="video_file" accept="video/*"
+                class="w-full px-4 py-3 bg-bio-light/40 border border-bio-light rounded-2xl text-sm file:mr-3 file:px-4 file:py-1.5 file:rounded-full file:border-0 file:bg-bio-main file:text-white file:font-bold file:text-xs">
+        </div>
+
+        <div class="flex gap-3 pt-2">
+            <a href="{% url 'classroom_detail' code=classroom.code %}" class="flex-1 py-3 bg-white border-2 border-bio-main text-bio-dark font-bold rounded-2xl text-center text-sm shadow transition hover:bg-bio-light">
+                ยกเลิก
+            </a>
+            <button type="submit" class="flex-1 py-3 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-sm shadow transition">
+                บันทึกคลิปวิดีโอ
+            </button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}

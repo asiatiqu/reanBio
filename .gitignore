@@ -8,3 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# ไฟล์ที่ผู้ใช้อัปโหลด (คลิปวิดีโอ/เอกสารการสอนของคุณครู)
+media/

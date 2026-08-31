@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path
 from reanBio import views
@@ -13,6 +15,12 @@ urlpatterns = [
     path('classrooms/', views.my_classroom_view, name='my_classrooms'),
     path('classrooms/join/', views.join_classroom_view, name='join_classroom'),
     path('classrooms/<str:code>/', views.classroom_detail_view, name='classroom_detail'),
+    path('classrooms/<str:code>/videos/add/', views.classroom_add_video_view, name='classroom_add_video'),
+    path('classrooms/<str:code>/files/add/', views.classroom_add_file_view, name='classroom_add_file'),
+    path('classrooms/<str:code>/quizzes/add/', views.classroom_add_quiz_view, name='classroom_add_quiz'),
+    path('classroom-quizzes/<int:quiz_pk>/start/', views.classroom_quiz_start_view, name='classroom_quiz_start'),
+    path('classroom-quiz-attempts/<int:attempt_pk>/', views.classroom_quiz_take_view, name='classroom_quiz_take'),
+    path('classroom-quiz-attempts/<int:attempt_pk>/result/', views.classroom_quiz_result_view, name='classroom_quiz_result'),
     path('teacher/dashboard/', views.teacher_dashboard_view, name='teacher_dashboard'),
     path('lessons/', views.lessons_view, name='lessons'),
     path('lessons/<int:pk>/', views.lesson_detail_view, name='lesson_detail'),
@@ -28,3 +36,6 @@ urlpatterns = [
     path('attempts/<int:attempt_pk>/', views.attempt_take_view, name='attempt_take'),
     path('attempts/<int:attempt_pk>/result/', views.attempt_result_view, name='attempt_result'),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

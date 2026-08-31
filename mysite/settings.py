@@ -117,6 +117,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# 📌 ไฟล์ที่ผู้ใช้อัปโหลด (คลิปวิดีโอ/เอกสารการสอนของคุณครู)
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # 📌 แยก Session Cookie สำหรับหน้า Admin และหน้าเว็บทั่วไป
 SESSION_COOKIE_NAME = 'reanbio_user_session'
 ADMIN_SESSION_COOKIE_NAME = 'reanbio_admin_session'
