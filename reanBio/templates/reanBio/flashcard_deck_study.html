@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ทบทวน {{ deck.title }} - การ์ดของฉัน{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-3xl flex flex-col gap-6">
+
+    <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-bold text-bio-dark">{{ deck.title }}</h1>
+            <p class="text-xs text-slate-500 mt-1">แตะที่การ์ดเพื่อพลิกดูคำตอบ</p>
+        </div>
+        <a href="{% url 'flashcard_deck_detail' deck_pk=deck.pk %}" class="px-5 py-2.5 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl text-xs transition whitespace-nowrap">← กลับไปจัดการชุดการ์ด</a>
+    </div>
+
+    {% if card_count == 0 %}
+    <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-[30px] bg-white/40">
+        <p class="font-semibold text-slate-700 mt-2">ชุดนี้ยังไม่มีการ์ด</p>
+    </div>
+    {% else %}
+    <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-10 flex flex-col items-center gap-6">
+
+        <div class="flex items-center justify-end w-full text-xs font-bold text-slate-400">
+            <span id="fc-counter">1 / {{ card_count }}</span>
+        </div>
+
+        <div id="fc-card" class="cursor-pointer" style="perspective: 1200px; width: 100%; height: 280px;">
+            <div id="fc-card-inner" style="position:relative; width:100%; height:100%; transition: transform 0.5s; transform-style: preserve-3d;">
+                <div id="fc-front" style="position:absolute; inset:0; backface-visibility:hidden; display:flex; align-items:center; justify-content:center; text-align:center;"
+                    class="bg-gradient-to-br from-bio-main to-bio-dark text-white rounded-3xl p-8 text-lg md:text-xl font-bold leading-relaxed shadow-md whitespace-pre-line">
+                </div>
+                <div id="fc-back" style="position:absolute; inset:0; backface-visibility:hidden; transform: rotateY(180deg); display:flex; align-items:center; justify-content:center; text-align:center; overflow-y:auto;"
+                    class="bg-bio-light border-2 border-bio-main text-bio-dark rounded-3xl p-8 text-sm md:text-base font-semibold leading-relaxed shadow-md whitespace-pre-line">
+                </div>
+            </div>
+        </div>
+        <p class="text-xs text-slate-400 -mt-3">แตะที่การ์ดเพื่อพลิกดูคำตอบ</p>
+
+        <div class="flex items-center gap-3 w-full">
+            <button type="button" onclick="fcPrev()" class="flex-1 py-3 bg-white border-2 border-bio-main text-bio-dark font-bold rounded-2xl text-sm shadow transition hover:bg-bio-light">← ก่อนหน้า</button>
+            <button type="button" onclick="fcShuffle()" class="px-5 py-3 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl text-sm transition">สลับลำดับ</button>
+            <button type="button" onclick="fcNext()" class="flex-1 py-3 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-sm shadow transition">ถัดไป →</button>
+        </div>
+    </div>
+
+    <script>
+        let fcCards = {{ cards_json|safe }};
+        let fcIndex = 0;
+        let fcFlipped = false;
+
+        function fcRender() {
+            const card = fcCards[fcIndex];
+            document.getElementById('fc-front').textContent = card.front;
+            document.getElementById('fc-back').textContent = card.back;
+            document.getElementById('fc-counter').textContent = (fcIndex + 1) + ' / ' + fcCards.length;
+            fcFlipped = false;
+            document.getElementById('fc-card-inner').style.transform = 'rotateY(0deg)';
+        }
+
+        function fcNext() {
+            fcIndex = (fcIndex + 1) % fcCards.length;
+            fcRender();
+        }
+
+        function fcPrev() {
+            fcIndex = (fcIndex - 1 + fcCards.length) % fcCards.length;
+            fcRender();
+        }
+
+        function fcShuffle() {
+            for (let i = fcCards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [fcCards[i], fcCards[j]] = [fcCards[j], fcCards[i]];
+            }
+            fcIndex = 0;
+            fcRender();
+        }
+
+        document.getElementById('fc-card').addEventListener('click', () => {
+            fcFlipped = !fcFlipped;
+            document.getElementById('fc-card-inner').style.transform = fcFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)';
+        });
+
+        fcRender();
+    </script>
+    {% endif %}
+
+</div>
+{% endblock %}

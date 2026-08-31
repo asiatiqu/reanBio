@@ -30,6 +30,13 @@ urlpatterns = [
     path('quiz-generator/', views.quiz_generator_view, name='quiz_generator'),
     path('quiz-generator/start/', views.start_generated_quiz, name='start_generated_quiz'),
 
+    # 📌 การ์ดคำศัพท์ของนักเรียนเอง (ส่วนตัว)
+    path('my-flashcards/', views.my_flashcards_view, name='my_flashcards'),
+    path('my-flashcards/<int:deck_pk>/', views.flashcard_deck_detail_view, name='flashcard_deck_detail'),
+    path('my-flashcards/<int:deck_pk>/delete/', views.flashcard_deck_delete_view, name='flashcard_deck_delete'),
+    path('my-flashcards/<int:deck_pk>/study/', views.flashcard_deck_study_view, name='flashcard_deck_study'),
+    path('my-flashcards/cards/<int:card_pk>/delete/', views.flashcard_card_delete_view, name='flashcard_card_delete'),
+
     # 📌 ระบบแบบฝึกหัด / ข้อสอบ (แดชบอร์ดรวมอยู่ในหน้าโปรไฟล์)
     path('lessons/<int:pk>/exercise/', views.lesson_exercise_view, name='lesson_exercise'),
     path('lessons/<int:pk>/exercise/start/', views.start_practice_attempt, name='start_practice_attempt'),

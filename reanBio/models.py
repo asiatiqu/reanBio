@@ -354,3 +354,34 @@ class ClassroomQuizAnswer(models.Model):
 
     def __str__(self):
         return f"Attempt#{self.attempt_id} - Q{self.question_id}"
+
+
+# 📌 การ์ดคำศัพท์ที่นักเรียนสร้างเอง (ส่วนตัวเฉพาะคนสร้าง ไม่แชร์ให้คนอื่นเห็น)
+class FlashcardDeck(models.Model):
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='flashcard_decks', verbose_name="เจ้าของ")
+    title = models.CharField(max_length=200, verbose_name="ชื่อชุดการ์ด")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} ({self.owner})"
+
+    @property
+    def card_count(self):
+        return self.cards.count()
+
+
+class Flashcard(models.Model):
+    deck = models.ForeignKey(FlashcardDeck, on_delete=models.CASCADE, related_name='cards', verbose_name="ชุดการ์ด")
+    front = models.TextField(verbose_name="คำถาม/คำศัพท์ (ด้านหน้า)")
+    back = models.TextField(verbose_name="คำตอบ/ความหมาย (ด้านหลัง)")
+    order = models.PositiveIntegerField(default=1, verbose_name="ลำดับ")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['deck', 'order', 'created_at']
+
+    def __str__(self):
+        return self.front[:60]

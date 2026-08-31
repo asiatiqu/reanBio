@@ -505,6 +505,7 @@
         <a href="{% url 'lessons' %}" class="{% if request.resolver_match.url_name == 'lessons' %}active{% endif %}">บทเรียน</a>
         {% if not request.user.is_teacher %}
           <a href="{% url 'quiz_generator' %}" class="{% if request.resolver_match.url_name == 'quiz_generator' %}active{% endif %}">สร้างแบบทดสอบ</a>
+          <a href="{% url 'my_flashcards' %}" class="{% if request.resolver_match.url_name == 'my_flashcards' or request.resolver_match.url_name == 'flashcard_deck_detail' or request.resolver_match.url_name == 'flashcard_deck_study' %}active{% endif %}">การ์ดของฉัน</a>
         {% endif %}
 
         <!-- แยกเมนูตามบทบาทคุณครู / นักเรียน -->

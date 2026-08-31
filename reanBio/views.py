@@ -20,7 +20,7 @@ from django.utils.html import escape
 from .models import (
     UserProfile, Classroom, Lesson, Question, Choice, Attempt, AttemptAnswer, Checkpoint, LessonView,
     ClassroomVideo, ClassroomFile, ClassroomQuiz, ClassroomQuizQuestion, ClassroomQuizChoice,
-    ClassroomQuizAttempt, ClassroomQuizAnswer,
+    ClassroomQuizAttempt, ClassroomQuizAnswer, FlashcardDeck, Flashcard,
 )
 from .forms import UserSignUpForm
 
@@ -824,6 +824,74 @@ def start_generated_quiz(request):
         return redirect('quiz_generator')
 
     return redirect('attempt_take', attempt_pk=attempt.pk)
+
+
+# 📌 การ์ดคำศัพท์ของนักเรียนเอง (ส่วนตัวเฉพาะคนสร้าง คนอื่นมองไม่เห็น)
+@login_required
+def my_flashcards_view(request):
+    """หน้ารายการชุดการ์ดคำศัพท์ของฉัน พร้อมฟอร์มสร้างชุดใหม่"""
+    if getattr(request.user, 'is_teacher', False):
+        messages.info(request, "บทบาทคุณครูใช้สำหรับอ่านเนื้อหาบทเรียนเท่านั้น ไม่มีการสร้างการ์ดคำศัพท์ส่วนตัว")
+        return redirect('home')
+
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        if not title:
+            messages.error(request, 'กรุณาตั้งชื่อชุดการ์ดก่อน')
+        else:
+            deck = FlashcardDeck.objects.create(owner=request.user, title=title)
+            return redirect('flashcard_deck_detail', deck_pk=deck.pk)
+
+    decks = FlashcardDeck.objects.filter(owner=request.user)
+    return render(request, 'reanBio/my_flashcards.html', {'decks': decks})
+
+
+@login_required
+def flashcard_deck_detail_view(request, deck_pk):
+    """หน้าจัดการการ์ดในชุดเดียว: เพิ่มการ์ดใหม่ + ดูรายการการ์ดทั้งหมดในชุดนี้"""
+    deck = get_object_or_404(FlashcardDeck, pk=deck_pk, owner=request.user)
+
+    if request.method == 'POST':
+        front = request.POST.get('front', '').strip()
+        back = request.POST.get('back', '').strip()
+        if not front or not back:
+            messages.error(request, 'กรุณากรอกทั้งด้านหน้าและด้านหลังของการ์ด')
+        else:
+            next_order = deck.cards.count() + 1
+            Flashcard.objects.create(deck=deck, front=front, back=back, order=next_order)
+            return redirect('flashcard_deck_detail', deck_pk=deck.pk)
+
+    return render(request, 'reanBio/flashcard_deck_detail.html', {'deck': deck, 'cards': deck.cards.all()})
+
+
+@login_required
+def flashcard_deck_delete_view(request, deck_pk):
+    deck = get_object_or_404(FlashcardDeck, pk=deck_pk, owner=request.user)
+    if request.method == 'POST':
+        deck.delete()
+        messages.success(request, 'ลบชุดการ์ดเรียบร้อยแล้ว')
+    return redirect('my_flashcards')
+
+
+@login_required
+def flashcard_card_delete_view(request, card_pk):
+    card = get_object_or_404(Flashcard, pk=card_pk, deck__owner=request.user)
+    deck_pk = card.deck_id
+    if request.method == 'POST':
+        card.delete()
+    return redirect('flashcard_deck_detail', deck_pk=deck_pk)
+
+
+@login_required
+def flashcard_deck_study_view(request, deck_pk):
+    """โหมดพลิกการ์ดทบทวน ใช้รูปแบบเดียวกับหน้าการ์ดคำศัพท์หลัก"""
+    deck = get_object_or_404(FlashcardDeck, pk=deck_pk, owner=request.user)
+    cards = [{'front': c.front, 'back': c.back} for c in deck.cards.all()]
+    return render(request, 'reanBio/flashcard_deck_study.html', {
+        'deck': deck,
+        'cards_json': json.dumps(cards, ensure_ascii=False),
+        'card_count': len(cards),
+    })
 
 
 @login_required
