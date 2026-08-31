@@ -14,7 +14,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.html import escape
 
-from .models import UserProfile, Classroom, Lesson, Question, Choice, Attempt, AttemptAnswer, Checkpoint
+from .models import UserProfile, Classroom, Lesson, Question, Choice, Attempt, AttemptAnswer, Checkpoint, LessonView
 from .forms import UserSignUpForm
 
 
@@ -258,6 +258,8 @@ def profile(request):
     context = {
         'profile': user_profile,
         'classrooms': classrooms,
+        # 📌 แท็บ "เข้าชมล่าสุด": บทเรียนที่เปิดดูล่าสุด (บันทึกไว้ตอนเข้า lesson_detail_view)
+        'recent_views': LessonView.objects.filter(user=request.user).select_related('lesson')[:10],
     }
     # 📌 แท็บ "แดชบอร์ด" ในหน้าโปรไฟล์: สรุปคะแนนแบบฝึกหัด/ข้อสอบ (เฉพาะนักเรียน คุณครูมีแดชบอร์ดห้องเรียนแยกต่างหาก)
     if not is_teacher:
@@ -281,6 +283,10 @@ def lesson_detail_view(request, pk):
     content_html = _render_content_html(lesson.content, search_query, checkpoints)
     # 📌 คุณครูใช้หน้านี้เพื่ออ่านเนื้อหาเท่านั้น ไม่มีสิทธิ์ทำแบบฝึกหัด/ข้อสอบ (นั่นเป็นของนักเรียน)
     is_teacher = request.user.is_authenticated and getattr(request.user, 'is_teacher', False)
+
+    # 📌 บันทึกว่าเข้าชมบทเรียนนี้ล่าสุดเมื่อไหร่ ไว้แสดงในแท็บ "เข้าชมล่าสุด" ของหน้าโปรไฟล์
+    if request.user.is_authenticated:
+        LessonView.objects.update_or_create(user=request.user, lesson=lesson)
 
     return render(request, 'reanBio/lesson_detail.html', {
         'lesson': lesson,
