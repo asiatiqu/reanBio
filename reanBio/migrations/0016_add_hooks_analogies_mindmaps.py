@@ -262,7 +262,7 @@ def reverse_update(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("reanBio", "0014_expand_chapter1_content_and_checkpoints"),
+        ("reanBio", "0015_lessonview"),
     ]
 
     operations = [
