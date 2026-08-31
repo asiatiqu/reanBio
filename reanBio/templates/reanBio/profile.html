@@ -304,5 +304,14 @@
         renderChart('practiceChart', practiceData, '#329632');
         renderChart('examChart', examData, '#287a28');
     }
+
+    // 📌 เปิดแท็บที่ระบุผ่าน query string ได้ทันทีที่โหลดหน้า เช่น profile/?tab=dashboard
+    // (ใช้ตอนกดปุ่ม "ดูแดชบอร์ดสรุปผล" จากหน้าผลข้อสอบ จะได้ไม่ต้องมาคลิกแท็บเองอีกที)
+    (function () {
+        const requestedTab = new URLSearchParams(window.location.search).get('tab');
+        if (requestedTab && document.getElementById('tab-btn-' + requestedTab)) {
+            switchProfileTab(requestedTab);
+        }
+    })();
 </script>
 {% endblock %}
