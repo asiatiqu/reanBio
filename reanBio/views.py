@@ -656,9 +656,9 @@ def lesson_detail_view(request, pk):
     # 📌 คุณครูใช้หน้านี้เพื่ออ่านเนื้อหาเท่านั้น ไม่มีสิทธิ์ทำแบบฝึกหัด/ข้อสอบ (นั่นเป็นของนักเรียน)
     is_teacher = request.user.is_authenticated and getattr(request.user, 'is_teacher', False)
 
-    # 📌 บันทึกว่าเข้าชมบทเรียนนี้ล่าสุดเมื่อไหร่ ไว้แสดงในแท็บ "เข้าชมล่าสุด" ของหน้าโปรไฟล์
+    # 📌 บันทึกการเข้าชมบทเรียนนี้เป็นแถวใหม่เสมอ (ไม่ทับของเดิม) ไว้แสดงประวัติในแท็บ "เข้าชมล่าสุด" ของหน้าโปรไฟล์
     if request.user.is_authenticated:
-        LessonView.objects.update_or_create(user=request.user, lesson=lesson)
+        LessonView.objects.create(user=request.user, lesson=lesson)
 
     return render(request, 'reanBio/lesson_detail.html', {
         'lesson': lesson,

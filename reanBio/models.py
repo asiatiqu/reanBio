@@ -207,17 +207,17 @@ class AttemptAnswer(models.Model):
 
 
 # 📌 5. ประวัติการเข้าชมบทเรียน (สำหรับแท็บ "เข้าชมล่าสุด" ในหน้าโปรไฟล์)
+# 📌 บันทึกเป็นแถวใหม่ทุกครั้งที่เข้าชม (ไม่ unique ต่อ user+lesson แล้ว) เพื่อเก็บประวัติการเข้าชมซ้ำไว้ทั้งหมด
 class LessonView(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='lesson_views', verbose_name="ผู้ใช้งาน")
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='views', verbose_name="บทเรียนที่เข้าชม")
-    viewed_at = models.DateTimeField(auto_now=True, verbose_name="เข้าชมล่าสุดเมื่อ")
+    viewed_at = models.DateTimeField(auto_now_add=True, verbose_name="เข้าชมเมื่อ")
 
     class Meta:
-        unique_together = ('user', 'lesson')
         ordering = ['-viewed_at']
 
     def __str__(self):
-        return f"{self.user} เข้าชม {self.lesson} ล่าสุดเมื่อ {self.viewed_at}"
+        return f"{self.user} เข้าชม {self.lesson} เมื่อ {self.viewed_at}"
 
 
 # 📌 6. เครื่องมือจัดการห้องเรียนสำหรับคุณครู (คลิปวิดีโอ / ไฟล์เอกสาร / แบบทดสอบที่สร้างเอง)
