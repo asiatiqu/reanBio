@@ -58,7 +58,15 @@
             <p class="text-xs text-slate-400">ลองเปลี่ยนระดับชั้นหรือบทที่ดูนะ</p>
         </div>
         {% else %}
-        <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-10 flex flex-col items-center gap-6">
+        <!-- 📌 การ์ดเริ่มต้น: ให้เลือกดูจำนวนการ์ดก่อน แล้วค่อยกด "ทบทวน" เพื่อเข้าสู่โหมดพลิกการ์ด (เหมือนแท็บ "การ์ดของฉัน") -->
+        <div id="fc-start" class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-10 text-center space-y-3">
+            <p class="text-4xl">🗂️</p>
+            <p class="font-bold text-bio-dark text-lg">การ์ดคำศัพท์จากคลังคำถาม</p>
+            <p class="text-xs text-slate-400">{{ card_count }} การ์ด</p>
+            <button type="button" onclick="fcStartReview()" class="px-8 py-3 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-sm shadow transition">ทบทวน</button>
+        </div>
+
+        <div id="fc-review" class="hidden bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-10 flex-col items-center gap-6">
 
             <div class="flex items-center justify-between w-full text-xs font-bold text-slate-400">
                 <span id="fc-lesson-tag" class="bg-bio-light/60 text-bio-dark px-3 py-1 rounded-full"></span>
@@ -123,7 +131,14 @@
                 document.getElementById('fc-card-inner').style.transform = fcFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)';
             });
 
-            fcRender();
+            // 📌 เข้าสู่โหมดพลิกการ์ดจริงๆ ก็ต่อเมื่อกด "ทบทวน" เท่านั้น
+            function fcStartReview() {
+                document.getElementById('fc-start').classList.add('hidden');
+                const reviewEl = document.getElementById('fc-review');
+                reviewEl.classList.remove('hidden');
+                reviewEl.classList.add('flex');
+                fcRender();
+            }
         </script>
         {% endif %}
     </div>
