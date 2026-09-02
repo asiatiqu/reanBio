@@ -668,6 +668,15 @@ def lesson_detail_view(request, pk):
     })
 
 
+def lesson_3d_view(request, pk):
+    """หน้าแยกสำหรับสื่อ 3D Interactive ของบทเรียน (แยกออกมาจากหน้าบทเรียนหลักเพื่อให้มีพื้นที่แสดงผลเต็มที่)
+    ปัจจุบันมีสื่อ 3D เฉพาะหัวข้อ 1.1 ธรรมชาติของสิ่งมีชีวิต"""
+    lesson = get_object_or_404(Lesson, pk=pk)
+    if lesson.subtopic_code != '1.1':
+        raise Http404("บทเรียนนี้ยังไม่มีสื่อ 3D Interactive")
+    return render(request, 'reanBio/lesson_3d.html', {'lesson': lesson})
+
+
 # ============================================================
 # 📌 5. ระบบแบบฝึกหัด / ข้อสอบ / เก็บคะแนน
 # ============================================================
