@@ -118,9 +118,9 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 25px;
+      margin-bottom: 15px;
       width: 100%;
-      padding: 10px 5px;
+      padding: 6px 5px;
     }
 
     .sidebar .logo img {
@@ -167,6 +167,15 @@
       background-color: #329632;
       color: #ffffff;
       box-shadow: 0 4px 12px rgba(50, 150, 50, 0.25);
+    }
+
+    .nav-menu a.logout-link {
+      color: #dc2626;
+    }
+
+    .nav-menu a.logout-link:hover {
+      background-color: #fee2e2;
+      color: #dc2626;
     }
 
     /* Main Layout Structure */
@@ -515,7 +524,7 @@
           <a href="{% url 'my_classrooms' %}" class="{% if request.resolver_match.url_name == 'my_classrooms' %}active{% endif %}">ห้องเรียนของฉัน</a>
         {% endif %}
 
-        <a href="{% url 'logout' %}">ออกจากระบบ</a>
+        <a href="{% url 'logout' %}" class="logout-link">ออกจากระบบ</a>
       {% else %}
         <a href="{% url 'login' %}">เข้าสู่ระบบ</a>
         <a href="{% url 'signup' %}">สมัครสมาชิก</a>
