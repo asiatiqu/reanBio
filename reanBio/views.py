@@ -8,7 +8,7 @@ from itertools import groupby
 from django.conf import settings
 from django.db import IntegrityError
 from django.db.models import Q
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth.forms import AuthenticationForm
@@ -21,7 +21,7 @@ from django.utils.html import escape
 from .models import (
     UserProfile, Classroom, Lesson, Question, Choice, Attempt, AttemptAnswer, Checkpoint, LessonView,
     ClassroomVideo, ClassroomFile, ClassroomQuiz, ClassroomQuizQuestion, ClassroomQuizChoice,
-    ClassroomQuizAttempt, ClassroomQuizAnswer, FlashcardDeck, Flashcard,
+    ClassroomQuizAttempt, ClassroomQuizAnswer, FlashcardDeck, Flashcard, AIFeedback,
 )
 from .forms import UserSignUpForm
 from .ai_helper import ask_biology_ai, AskAIError
@@ -126,6 +126,39 @@ def ask_ai_view(request):
         'ai_answer': ai_answer,
         'ai_error': ai_error,
     })
+
+
+# 📌 รับ feedback (👍/👎) จากผู้ใช้ต่อคำตอบของ AI เก็บไว้ดูว่าคำตอบช่วยได้จริงไหม เพื่อปรับปรุงต่อ
+# เรียกจาก JS ด้วย fetch() แบบ POST + JSON body (ดู reanBio/templates/reanBio/_ai_feedback_widget.html)
+@login_required
+def ai_feedback_view(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'ต้องส่งแบบ POST เท่านั้น'}, status=405)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({'ok': False, 'error': 'ข้อมูลไม่ถูกต้อง'}, status=400)
+
+    question = (payload.get('question') or '').strip()
+    answer = (payload.get('answer') or '').strip()
+    lesson_id = payload.get('lesson_id') or None
+
+    if not question or not answer:
+        return JsonResponse({'ok': False, 'error': 'ไม่มีคำถาม/คำตอบให้บันทึก'}, status=400)
+
+    lesson_obj = None
+    if lesson_id:
+        lesson_obj = Lesson.objects.filter(pk=lesson_id).first()
+
+    AIFeedback.objects.create(
+        user=request.user,
+        question=question[:2000],
+        answer=answer[:4000],
+        lesson=lesson_obj,
+        is_helpful=bool(payload.get('is_helpful')),
+    )
+    return JsonResponse({'ok': True})
 
 
 def signup(request):

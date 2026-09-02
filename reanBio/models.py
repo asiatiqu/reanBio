@@ -395,3 +395,20 @@ class Flashcard(models.Model):
 
     def __str__(self):
         return self.front[:60]
+
+
+# 📌 7. Feedback จากผู้ใช้ต่อคำตอบของฟีเจอร์ "ถาม AI" (👍/👎) ใช้ดูว่าคำตอบช่วยได้จริงไหม เพื่อปรับปรุงต่อ
+class AIFeedback(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ai_feedback', verbose_name="ผู้ใช้งาน")
+    question = models.TextField(verbose_name="คำถาม")
+    answer = models.TextField(verbose_name="คำตอบของ AI")
+    lesson = models.ForeignKey(Lesson, on_delete=models.SET_NULL, null=True, blank=True, related_name='ai_feedback', verbose_name="บทเรียนที่เกี่ยวข้อง (ถ้ามี)")
+    is_helpful = models.BooleanField(verbose_name="เป็นประโยชน์หรือไม่ (True=👍, False=👎)")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="ให้ feedback เมื่อ")
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        mark = "👍" if self.is_helpful else "👎"
+        return f"{self.user} {mark} เมื่อ {self.created_at}"

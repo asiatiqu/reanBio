@@ -134,6 +134,7 @@
                     <p class="font-bold text-bio-dark text-xs mb-2">🤖 คำตอบจาก AI</p>
                     {{ ai_answer }}
                 </div>
+                {% include 'reanBio/_ai_feedback_widget.html' with feedback_widget_id="lesson" feedback_lesson_id=lesson.pk %}
                 {% endif %}
                 {% else %}
                 <p class="text-xs text-slate-500">
