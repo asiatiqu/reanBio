@@ -668,13 +668,22 @@ def lesson_detail_view(request, pk):
     })
 
 
+# 📌 หัวข้อที่มีสื่อ 3D Interactive พร้อมใช้งานแล้ว (เพิ่มโค้ดในลิสต์นี้เมื่อทำสื่อ 3D ของหัวข้ออื่นเสร็จ)
+LESSON_3D_SUBTOPIC_CODES = ['1.1']
+
+
 def lesson_3d_view(request, pk):
-    """หน้าแยกสำหรับสื่อ 3D Interactive ของบทเรียน (แยกออกมาจากหน้าบทเรียนหลักเพื่อให้มีพื้นที่แสดงผลเต็มที่)
-    ปัจจุบันมีสื่อ 3D เฉพาะหัวข้อ 1.1 ธรรมชาติของสิ่งมีชีวิต"""
+    """หน้าแยกสำหรับสื่อ 3D Interactive ของบทเรียน (แยกออกมาจากหน้าบทเรียนหลักเพื่อให้มีพื้นที่แสดงผลเต็มที่)"""
     lesson = get_object_or_404(Lesson, pk=pk)
-    if lesson.subtopic_code != '1.1':
+    if lesson.subtopic_code not in LESSON_3D_SUBTOPIC_CODES:
         raise Http404("บทเรียนนี้ยังไม่มีสื่อ 3D Interactive")
     return render(request, 'reanBio/lesson_3d.html', {'lesson': lesson})
+
+
+def lesson_3d_hub_view(request):
+    """หน้ารวมสื่อ 3D Interactive ทั้งหมด เข้าถึงได้จากเมนูด้านข้างโดยตรง ไม่ต้องผ่านหน้าบทเรียน"""
+    lessons_with_3d = Lesson.objects.filter(subtopic_code__in=LESSON_3D_SUBTOPIC_CODES)
+    return render(request, 'reanBio/lesson_3d_hub.html', {'lessons_with_3d': lessons_with_3d})
 
 
 # ============================================================
