@@ -8,98 +8,183 @@
 
     <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-8">
         <h1 class="text-2xl md:text-3xl font-bold text-bio-dark">การ์ดคำศัพท์</h1>
-        <p class="text-xs text-slate-500 mt-1">พลิกการ์ดเพื่อทบทวนคำถาม-คำตอบจากคลังข้อสอบ เลือกระดับชั้นและบทที่เพื่อจำกัดขอบเขตได้</p>
+        <p class="text-xs text-slate-500 mt-1">พลิกการ์ดเพื่อทบทวนความรู้ ใช้การ์ดจากคลังข้อสอบ หรือสร้างชุดการ์ดของตัวเองก็ได้</p>
 
-        <form method="get" action="{% url 'flashcards' %}" class="mt-5 flex flex-wrap items-center gap-3">
-            <div class="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                <a href="?grade=all" class="px-4 py-2 rounded-full whitespace-nowrap transition {% if current_grade == 'all' or not current_grade %}bg-bio-main text-white{% else %}bg-bio-light/60 hover:bg-bio-light text-slate-700{% endif %}">ทั้งหมด</a>
-                <a href="?grade=m4" class="px-4 py-2 rounded-full whitespace-nowrap transition {% if current_grade == 'm4' %}bg-bio-main text-white{% else %}bg-bio-light/60 hover:bg-bio-light text-slate-700{% endif %}">ม.4</a>
-                <a href="?grade=m5" class="px-4 py-2 rounded-full whitespace-nowrap transition {% if current_grade == 'm5' %}bg-bio-main text-white{% else %}bg-bio-light/60 hover:bg-bio-light text-slate-700{% endif %}">ม.5</a>
-                <a href="?grade=m6" class="px-4 py-2 rounded-full whitespace-nowrap transition {% if current_grade == 'm6' %}bg-bio-main text-white{% else %}bg-bio-light/60 hover:bg-bio-light text-slate-700{% endif %}">ม.6</a>
-            </div>
-            <input type="hidden" name="grade" value="{{ current_grade }}">
-            <select name="chapter" onchange="this.form.submit()"
-                class="px-4 py-2 bg-bio-light/50 border border-bio-light rounded-full text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-bio-main">
-                <option value="">ทุกบทที่</option>
-                {% for c in available_chapters %}
-                <option value="{{ c }}" {% if current_chapter == c|stringformat:"s" %}selected{% endif %}>บทที่ {{ c }}</option>
-                {% endfor %}
-            </select>
-        </form>
-    </div>
-
-    {% if card_count == 0 %}
-    <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-[30px] bg-white/40">
-        <p class="font-semibold text-slate-700 mt-2">ไม่พบการ์ดคำศัพท์ในขอบเขตที่เลือก</p>
-        <p class="text-xs text-slate-400">ลองเปลี่ยนระดับชั้นหรือบทที่ดูนะ</p>
-    </div>
-    {% else %}
-    <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-10 flex flex-col items-center gap-6">
-
-        <div class="flex items-center justify-between w-full text-xs font-bold text-slate-400">
-            <span id="fc-lesson-tag" class="bg-bio-light/60 text-bio-dark px-3 py-1 rounded-full"></span>
-            <span id="fc-counter">1 / {{ card_count }}</span>
+        {% if show_my_decks_tab %}
+        <div class="flex gap-2 mt-5">
+            <button type="button" id="tab-btn-bank" onclick="fcSwitchTab('bank')"
+                class="px-5 py-2.5 rounded-full text-sm font-bold transition">การ์ดจากคลังคำถาม</button>
+            <button type="button" id="tab-btn-mine" onclick="fcSwitchTab('mine')"
+                class="px-5 py-2.5 rounded-full text-sm font-bold transition">การ์ดของฉัน</button>
         </div>
+        {% endif %}
+    </div>
 
-        <div id="fc-card" class="cursor-pointer" style="perspective: 1200px; width: 100%; height: 280px;">
-            <div id="fc-card-inner" style="position:relative; width:100%; height:100%; transition: transform 0.5s; transform-style: preserve-3d;">
-                <div id="fc-front" style="position:absolute; inset:0; backface-visibility:hidden; display:flex; align-items:center; justify-content:center; text-align:center;"
-                    class="bg-gradient-to-br from-bio-main to-bio-dark text-white rounded-3xl p-8 text-lg md:text-xl font-bold leading-relaxed shadow-md">
+    {% if messages %}
+    <div class="space-y-2">
+        {% for message in messages %}
+        <div class="px-4 py-3 rounded-2xl text-sm font-semibold {% if message.tags == 'error' %}bg-red-50 text-red-600 border border-red-100{% else %}bg-green-50 text-green-700 border border-green-100{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ==================== แท็บ 1: การ์ดจากคลังคำถาม ==================== -->
+    <div id="tab-bank" class="flex flex-col gap-6">
+
+        <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-8">
+            <form method="get" action="{% url 'flashcards' %}" class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                    <a href="?grade=all" class="px-4 py-2 rounded-full whitespace-nowrap transition {% if current_grade == 'all' or not current_grade %}bg-bio-main text-white{% else %}bg-bio-light/60 hover:bg-bio-light text-slate-700{% endif %}">ทั้งหมด</a>
+                    <a href="?grade=m4" class="px-4 py-2 rounded-full whitespace-nowrap transition {% if current_grade == 'm4' %}bg-bio-main text-white{% else %}bg-bio-light/60 hover:bg-bio-light text-slate-700{% endif %}">ม.4</a>
+                    <a href="?grade=m5" class="px-4 py-2 rounded-full whitespace-nowrap transition {% if current_grade == 'm5' %}bg-bio-main text-white{% else %}bg-bio-light/60 hover:bg-bio-light text-slate-700{% endif %}">ม.5</a>
+                    <a href="?grade=m6" class="px-4 py-2 rounded-full whitespace-nowrap transition {% if current_grade == 'm6' %}bg-bio-main text-white{% else %}bg-bio-light/60 hover:bg-bio-light text-slate-700{% endif %}">ม.6</a>
                 </div>
-                <div id="fc-back" style="position:absolute; inset:0; backface-visibility:hidden; transform: rotateY(180deg); display:flex; align-items:center; justify-content:center; text-align:center; overflow-y:auto;"
-                    class="bg-bio-light border-2 border-bio-main text-bio-dark rounded-3xl p-8 text-sm md:text-base font-semibold leading-relaxed shadow-md whitespace-pre-line">
+                <input type="hidden" name="grade" value="{{ current_grade }}">
+                <select name="chapter" onchange="this.form.submit()"
+                    class="px-4 py-2 bg-bio-light/50 border border-bio-light rounded-full text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-bio-main">
+                    <option value="">ทุกบทที่</option>
+                    {% for c in available_chapters %}
+                    <option value="{{ c }}" {% if current_chapter == c|stringformat:"s" %}selected{% endif %}>บทที่ {{ c }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+
+        {% if card_count == 0 %}
+        <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-[30px] bg-white/40">
+            <p class="font-semibold text-slate-700 mt-2">ไม่พบการ์ดคำศัพท์ในขอบเขตที่เลือก</p>
+            <p class="text-xs text-slate-400">ลองเปลี่ยนระดับชั้นหรือบทที่ดูนะ</p>
+        </div>
+        {% else %}
+        <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-10 flex flex-col items-center gap-6">
+
+            <div class="flex items-center justify-between w-full text-xs font-bold text-slate-400">
+                <span id="fc-lesson-tag" class="bg-bio-light/60 text-bio-dark px-3 py-1 rounded-full"></span>
+                <span id="fc-counter">1 / {{ card_count }}</span>
+            </div>
+
+            <div id="fc-card" class="cursor-pointer" style="perspective: 1200px; width: 100%; height: 280px;">
+                <div id="fc-card-inner" style="position:relative; width:100%; height:100%; transition: transform 0.5s; transform-style: preserve-3d;">
+                    <div id="fc-front" style="position:absolute; inset:0; backface-visibility:hidden; display:flex; align-items:center; justify-content:center; text-align:center;"
+                        class="bg-gradient-to-br from-bio-main to-bio-dark text-white rounded-3xl p-8 text-lg md:text-xl font-bold leading-relaxed shadow-md">
+                    </div>
+                    <div id="fc-back" style="position:absolute; inset:0; backface-visibility:hidden; transform: rotateY(180deg); display:flex; align-items:center; justify-content:center; text-align:center; overflow-y:auto;"
+                        class="bg-bio-light border-2 border-bio-main text-bio-dark rounded-3xl p-8 text-sm md:text-base font-semibold leading-relaxed shadow-md whitespace-pre-line">
+                    </div>
                 </div>
             </div>
+            <p class="text-xs text-slate-400 -mt-3">แตะที่การ์ดเพื่อพลิกดูคำตอบ</p>
+
+            <div class="flex items-center gap-3 w-full">
+                <button type="button" onclick="fcPrev()" class="flex-1 py-3 bg-white border-2 border-bio-main text-bio-dark font-bold rounded-2xl text-sm shadow transition hover:bg-bio-light">← ก่อนหน้า</button>
+                <button type="button" onclick="fcShuffle()" class="px-5 py-3 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl text-sm transition">สลับลำดับ</button>
+                <button type="button" onclick="fcNext()" class="flex-1 py-3 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-sm shadow transition">ถัดไป →</button>
+            </div>
         </div>
-        <p class="text-xs text-slate-400 -mt-3">แตะที่การ์ดเพื่อพลิกดูคำตอบ</p>
 
-        <div class="flex items-center gap-3 w-full">
-            <button type="button" onclick="fcPrev()" class="flex-1 py-3 bg-white border-2 border-bio-main text-bio-dark font-bold rounded-2xl text-sm shadow transition hover:bg-bio-light">← ก่อนหน้า</button>
-            <button type="button" onclick="fcShuffle()" class="px-5 py-3 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl text-sm transition">สลับลำดับ</button>
-            <button type="button" onclick="fcNext()" class="flex-1 py-3 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-sm shadow transition">ถัดไป →</button>
-        </div>
-    </div>
+        <script>
+            let fcCards = {{ cards_json|safe }};
+            let fcIndex = 0;
+            let fcFlipped = false;
 
-    <script>
-        let fcCards = {{ cards_json|safe }};
-        let fcIndex = 0;
-        let fcFlipped = false;
-
-        function fcRender() {
-            const card = fcCards[fcIndex];
-            document.getElementById('fc-front').textContent = card.front;
-            document.getElementById('fc-back').textContent = card.back;
-            document.getElementById('fc-lesson-tag').textContent = card.lesson;
-            document.getElementById('fc-counter').textContent = (fcIndex + 1) + ' / ' + fcCards.length;
-            fcFlipped = false;
-            document.getElementById('fc-card-inner').style.transform = 'rotateY(0deg)';
-        }
-
-        function fcNext() {
-            fcIndex = (fcIndex + 1) % fcCards.length;
-            fcRender();
-        }
-
-        function fcPrev() {
-            fcIndex = (fcIndex - 1 + fcCards.length) % fcCards.length;
-            fcRender();
-        }
-
-        function fcShuffle() {
-            for (let i = fcCards.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [fcCards[i], fcCards[j]] = [fcCards[j], fcCards[i]];
+            function fcRender() {
+                const card = fcCards[fcIndex];
+                document.getElementById('fc-front').textContent = card.front;
+                document.getElementById('fc-back').textContent = card.back;
+                document.getElementById('fc-lesson-tag').textContent = card.lesson;
+                document.getElementById('fc-counter').textContent = (fcIndex + 1) + ' / ' + fcCards.length;
+                fcFlipped = false;
+                document.getElementById('fc-card-inner').style.transform = 'rotateY(0deg)';
             }
-            fcIndex = 0;
+
+            function fcNext() {
+                fcIndex = (fcIndex + 1) % fcCards.length;
+                fcRender();
+            }
+
+            function fcPrev() {
+                fcIndex = (fcIndex - 1 + fcCards.length) % fcCards.length;
+                fcRender();
+            }
+
+            function fcShuffle() {
+                for (let i = fcCards.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [fcCards[i], fcCards[j]] = [fcCards[j], fcCards[i]];
+                }
+                fcIndex = 0;
+                fcRender();
+            }
+
+            document.getElementById('fc-card').addEventListener('click', () => {
+                fcFlipped = !fcFlipped;
+                document.getElementById('fc-card-inner').style.transform = fcFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)';
+            });
+
             fcRender();
+        </script>
+        {% endif %}
+    </div>
+
+    {% if show_my_decks_tab %}
+    <!-- ==================== แท็บ 2: การ์ดของฉัน (ชุดที่นักเรียนสร้างเอง) ==================== -->
+    <div id="tab-mine" class="hidden flex-col gap-6">
+
+        <form method="post" action="{% url 'my_flashcards' %}" class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-md p-6 md:p-8 flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
+            {% csrf_token %}
+            <div class="flex-1">
+                <label class="block text-sm font-bold text-bio-dark mb-1.5">ชื่อชุดการ์ดใหม่</label>
+                <input type="text" name="title" required placeholder="เช่น คำศัพท์เซลล์ บทที่ 1"
+                    class="w-full px-4 py-3 bg-bio-light/40 border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition">
+            </div>
+            <button type="submit" class="px-6 py-3 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-sm shadow transition whitespace-nowrap">
+                + สร้างชุดการ์ด
+            </button>
+        </form>
+
+        {% if my_decks %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {% for deck in my_decks %}
+            <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-md p-6 space-y-3">
+                <div>
+                    <p class="font-bold text-bio-dark text-lg">{{ deck.title }}</p>
+                    <p class="text-xs text-slate-400">{{ deck.card_count }} การ์ด</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{% url 'flashcard_deck_detail' deck_pk=deck.pk %}" class="px-4 py-2 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark text-xs font-bold rounded-full transition whitespace-nowrap">จัดการการ์ด</a>
+                    {% if deck.card_count > 0 %}
+                    <a href="{% url 'flashcard_deck_study' deck_pk=deck.pk %}" class="px-4 py-2 bg-bio-main hover:bg-bio-dark text-white text-xs font-bold rounded-full transition whitespace-nowrap">ทบทวน</a>
+                    {% endif %}
+                    <form method="post" action="{% url 'flashcard_deck_delete' deck_pk=deck.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-full transition whitespace-nowrap">ลบชุด</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-[30px] bg-white/40">
+            <p class="font-semibold text-slate-700">ยังไม่มีชุดการ์ดของคุณ</p>
+            <p class="text-xs text-slate-400">ลองสร้างชุดแรกได้เลยจากฟอร์มด้านบน</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <style>
+        #tab-btn-bank, #tab-btn-mine { background-color: rgba(234, 243, 233, 0.6); color: #4a634e; }
+        #tab-btn-bank.tab-active, #tab-btn-mine.tab-active { background-color: #329632; color: #ffffff; }
+    </style>
+    <script>
+        function fcSwitchTab(tab) {
+            document.getElementById('tab-bank').classList.toggle('hidden', tab !== 'bank');
+            document.getElementById('tab-mine').classList.toggle('hidden', tab !== 'mine');
+            document.getElementById('tab-btn-bank').classList.toggle('tab-active', tab === 'bank');
+            document.getElementById('tab-btn-mine').classList.toggle('tab-active', tab === 'mine');
         }
-
-        document.getElementById('fc-card').addEventListener('click', () => {
-            fcFlipped = !fcFlipped;
-            document.getElementById('fc-card-inner').style.transform = fcFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)';
-        });
-
-        fcRender();
+        fcSwitchTab('{{ initial_tab }}' === 'mine' ? 'mine' : 'bank');
     </script>
     {% endif %}
 

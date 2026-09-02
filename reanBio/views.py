@@ -10,6 +10,7 @@ from django.db import IntegrityError
 from django.db.models import Q
 from django.http import HttpResponse, Http404
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
@@ -244,12 +245,19 @@ def flashcards_view(request):
     else:
         available_chapters = sorted({c for chapters in chapters_by_grade.values() for c in chapters})
 
+    # 📌 ถ้าเป็นนักเรียนที่ล็อกอินอยู่ ให้แสดงแท็บ "การ์ดของฉัน" (ชุดการ์ดที่นักเรียนสร้างเอง) ในหน้าเดียวกันด้วย
+    show_my_decks_tab = request.user.is_authenticated and not getattr(request.user, 'is_teacher', False)
+    my_decks = FlashcardDeck.objects.filter(owner=request.user) if show_my_decks_tab else None
+
     return render(request, 'reanBio/flashcards.html', {
         'cards_json': json.dumps(cards, ensure_ascii=False),
         'card_count': len(cards),
         'current_grade': grade_filter,
         'current_chapter': chapter_filter,
         'available_chapters': available_chapters,
+        'show_my_decks_tab': show_my_decks_tab,
+        'my_decks': my_decks,
+        'initial_tab': request.GET.get('tab', 'bank'),
     })
 
 
@@ -827,9 +835,10 @@ def start_generated_quiz(request):
 
 
 # 📌 การ์ดคำศัพท์ของนักเรียนเอง (ส่วนตัวเฉพาะคนสร้าง คนอื่นมองไม่เห็น)
+# รายการชุดการ์ด + ฟอร์มสร้างชุดใหม่ ถูกรวมแสดงในแท็บ "การ์ดของฉัน" ที่หน้า flashcards_view แล้ว
+# view นี้จึงเหลือหน้าที่หลักคือรับ POST สร้างชุดการ์ดใหม่ (GET จะเด้งกลับไปหน้าการ์ดคำศัพท์แท็บนี้)
 @login_required
 def my_flashcards_view(request):
-    """หน้ารายการชุดการ์ดคำศัพท์ของฉัน พร้อมฟอร์มสร้างชุดใหม่"""
     if getattr(request.user, 'is_teacher', False):
         messages.info(request, "บทบาทคุณครูใช้สำหรับอ่านเนื้อหาบทเรียนเท่านั้น ไม่มีการสร้างการ์ดคำศัพท์ส่วนตัว")
         return redirect('home')
@@ -838,12 +847,11 @@ def my_flashcards_view(request):
         title = request.POST.get('title', '').strip()
         if not title:
             messages.error(request, 'กรุณาตั้งชื่อชุดการ์ดก่อน')
-        else:
-            deck = FlashcardDeck.objects.create(owner=request.user, title=title)
-            return redirect('flashcard_deck_detail', deck_pk=deck.pk)
+            return redirect(f"{reverse('flashcards')}?tab=mine")
+        deck = FlashcardDeck.objects.create(owner=request.user, title=title)
+        return redirect('flashcard_deck_detail', deck_pk=deck.pk)
 
-    decks = FlashcardDeck.objects.filter(owner=request.user)
-    return render(request, 'reanBio/my_flashcards.html', {'decks': decks})
+    return redirect(f"{reverse('flashcards')}?tab=mine")
 
 
 @login_required
@@ -870,7 +878,7 @@ def flashcard_deck_delete_view(request, deck_pk):
     if request.method == 'POST':
         deck.delete()
         messages.success(request, 'ลบชุดการ์ดเรียบร้อยแล้ว')
-    return redirect('my_flashcards')
+    return redirect(f"{reverse('flashcards')}?tab=mine")
 
 
 @login_required

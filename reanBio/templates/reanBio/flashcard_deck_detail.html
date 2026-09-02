@@ -16,7 +16,7 @@
             {% if cards %}
             <a href="{% url 'flashcard_deck_study' deck_pk=deck.pk %}" class="px-5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition whitespace-nowrap">ทบทวน</a>
             {% endif %}
-            <a href="{% url 'my_flashcards' %}" class="px-5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition whitespace-nowrap">← กลับ</a>
+            <a href="{% url 'flashcards' %}?tab=mine" class="px-5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition whitespace-nowrap">← กลับ</a>
         </div>
     </div>
 
