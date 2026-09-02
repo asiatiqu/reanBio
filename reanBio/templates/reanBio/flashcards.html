@@ -68,6 +68,10 @@
 
         <div id="fc-review" class="hidden bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-10 flex-col items-center gap-6">
 
+            <div class="w-full flex items-center justify-start">
+                <button type="button" onclick="fcExitReview()" class="px-4 py-2 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark text-xs font-bold rounded-full transition">← กลับ</button>
+            </div>
+
             <div class="flex items-center justify-between w-full text-xs font-bold text-slate-400">
                 <span id="fc-lesson-tag" class="bg-bio-light/60 text-bio-dark px-3 py-1 rounded-full"></span>
                 <span id="fc-counter">1 / {{ card_count }}</span>
@@ -138,6 +142,13 @@
                 reviewEl.classList.remove('hidden');
                 reviewEl.classList.add('flex');
                 fcRender();
+            }
+
+            // 📌 กดปุ่ม "← กลับ" เพื่อออกจากโหมดพลิกการ์ด กลับไปหน้าสรุปจำนวนการ์ด
+            function fcExitReview() {
+                document.getElementById('fc-review').classList.add('hidden');
+                document.getElementById('fc-review').classList.remove('flex');
+                document.getElementById('fc-start').classList.remove('hidden');
             }
         </script>
         {% endif %}
