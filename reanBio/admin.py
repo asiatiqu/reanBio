@@ -36,6 +36,24 @@ class AIFeedbackAdmin(admin.ModelAdmin):
         return False
 
 
+@admin.action(description="ลองแกะข้อความจากไฟล์ PDF ใหม่อีกครั้ง (ใช้เมื่อครั้งก่อนแกะไม่สำเร็จ เช่น ยังไม่ได้ติดตั้ง pypdf ตอนอัปโหลด)")
+def reextract_pdf_text(modeladmin, request, queryset):
+    success_count = 0
+    failed_count = 0
+    for doc in queryset:
+        try:
+            doc.extracted_text = extract_pdf_text(doc.file.path)
+            doc.save(update_fields=['extracted_text'])
+            success_count += 1
+        except AskAIError as exc:
+            failed_count += 1
+            modeladmin.message_user(request, f'"{doc.title}": {exc}', level=messages.ERROR)
+    if success_count:
+        modeladmin.message_user(request, f"แกะข้อความสำเร็จ {success_count} ไฟล์", level=messages.SUCCESS)
+    if failed_count:
+        modeladmin.message_user(request, f"แกะข้อความไม่สำเร็จ {failed_count} ไฟล์ (ดูรายละเอียดข้อผิดพลาดด้านบน)", level=messages.WARNING)
+
+
 @admin.register(KnowledgeDocument)
 class KnowledgeDocumentAdmin(admin.ModelAdmin):
     # 📌 อัปโหลดไฟล์ PDF เนื้อหาชีวะเพิ่มเติมที่นี่ — ระบบจะแกะข้อความออกมาอัตโนมัติให้ทันที
@@ -44,10 +62,11 @@ class KnowledgeDocumentAdmin(admin.ModelAdmin):
     fields = ('title', 'file', 'extracted_text', 'uploaded_by', 'uploaded_at')
     readonly_fields = ('extracted_text', 'uploaded_by', 'uploaded_at')
     search_fields = ('title',)
+    actions = [reextract_pdf_text]
 
     def extracted_text_status(self, obj):
         if not obj.extracted_text:
-            return "⚠️ ยังไม่มีข้อความ (อาจเป็น PDF สแกนภาพ)"
+            return "⚠️ ยังไม่มีข้อความ (อาจเป็น PDF สแกนภาพ หรือครั้งก่อนแกะไม่สำเร็จ — ลองใช้ปุ่ม Action ด้านบนเพื่อแกะใหม่)"
         return f"✅ แกะได้ {len(obj.extracted_text):,} ตัวอักษร"
     extracted_text_status.short_description = "สถานะการแกะข้อความ"
 
