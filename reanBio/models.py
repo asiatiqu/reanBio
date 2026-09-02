@@ -412,3 +412,19 @@ class AIFeedback(models.Model):
     def __str__(self):
         mark = "👍" if self.is_helpful else "👎"
         return f"{self.user} {mark} เมื่อ {self.created_at}"
+
+
+# 📌 8. คลังเอกสารอ้างอิง (PDF) ที่แอดมินอัปโหลดผ่านหน้า Admin ให้ฟีเจอร์ "ถาม AI" ค้นหาเนื้อหาไปแนบตอบด้วย (RAG)
+# ไม่ผูกกับบทเรียนใดบทเรียนหนึ่งโดยเฉพาะ ถือเป็นคลังกลางที่ใช้ประกอบการตอบทุกคำถาม
+class KnowledgeDocument(models.Model):
+    title = models.CharField(max_length=200, verbose_name="ชื่อเอกสาร")
+    file = models.FileField(upload_to='knowledge_docs/%Y/%m/', verbose_name="ไฟล์ PDF")
+    extracted_text = models.TextField(blank=True, default="", verbose_name="เนื้อหาที่แกะจากไฟล์ (ระบบสร้างให้อัตโนมัติตอนอัปโหลด)")
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='knowledge_documents', verbose_name="ผู้อัปโหลด")
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="อัปโหลดเมื่อ")
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return self.title

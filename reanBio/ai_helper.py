@@ -33,7 +33,7 @@ class AskAIError(Exception):
 # ใช้วิธีเทียบ character n-gram overlap แทนการใช้ embedding model เพราะข้อความเป็นภาษาไทย (ไม่มีช่องว่างแบ่งคำ)
 # และคลังเนื้อหาตอนนี้มีขนาดเล็ก จึงไม่จำเป็นต้องพึ่งไลบรารีหรือฐานข้อมูลเวกเตอร์เพิ่มเติม
 RAG_NGRAM_SIZE = 4  # 📌 ใช้ 4 ตัวอักษรแทน 3 เพื่อลดโอกาส "บังเอิญ" ตรงกันจากคำศัพท์ภาษาอังกฤษสั้นๆ ที่ปนอยู่ในเนื้อหา (เช่น DNA, cell)
-RAG_TOP_K = 2
+RAG_TOP_K = 3  # 📌 ตอนนี้ค้นทั้งบทเรียนและเอกสาร PDF อ้างอิงรวมกัน เลยเผื่อที่ให้ผสมกันได้มากกว่าตอนค้นแค่บทเรียนอย่างเดียว
 RAG_CHUNK_CHARS = 1500
 RAG_MIN_SCORE = 0.15  # 📌 กันไม่ให้ดึงบทเรียนที่ไม่เกี่ยวข้องเลยมาแนบให้ AI อ่านฟรีๆ
 RAG_MIN_OVERLAP = 3  # 📌 ต้องมีจำนวนตัวอักษรที่ตรงกันจริงขั้นต่ำด้วย ไม่ใช่แค่สัดส่วนสูง (กันคำถามสั้นๆ หลอกคะแนน)
@@ -56,27 +56,53 @@ def _similarity_score(question_grams, text):
     return overlap / len(question_grams)
 
 
-def _retrieve_relevant_lessons(question, exclude_pk=None, top_k=RAG_TOP_K):
-    """ค้นหาบทเรียนที่เนื้อหาใกล้เคียงกับคำถามมากที่สุด คืนเป็นลิสต์ของ Lesson object (เรียงจากเกี่ยวข้องมากไปน้อย)"""
-    from .models import Lesson  # 📌 import แบบ local กันปัญหา circular import กับ models.py
+def _iter_knowledge_sources(exclude_lesson_pk=None):
+    """ไล่คืนแหล่งข้อมูลทั้งหมดที่ใช้เป็นคลังค้นหาสำหรับ RAG: บทเรียนทุกบท + เอกสาร PDF ที่แอดมินอัปโหลด (คลังกลาง)
+    คืนเป็น tuple (label, text) ทีละรายการ"""
+    from .models import Lesson, KnowledgeDocument  # 📌 import แบบ local กันปัญหา circular import กับ models.py
 
+    lessons_qs = Lesson.objects.all()
+    if exclude_lesson_pk:
+        lessons_qs = lessons_qs.exclude(pk=exclude_lesson_pk)
+    for lesson_obj in lessons_qs:
+        text = f"{lesson_obj.title} {lesson_obj.description} {lesson_obj.content}"
+        yield (f"บทเรียนที่เกี่ยวข้องในระบบ: {lesson_obj.title}", text)
+
+    for doc in KnowledgeDocument.objects.exclude(extracted_text=""):
+        text = f"{doc.title} {doc.extracted_text}"
+        yield (f"เอกสารอ้างอิงที่เกี่ยวข้อง: {doc.title}", text)
+
+
+def _retrieve_relevant_context(question, exclude_lesson_pk=None, top_k=RAG_TOP_K):
+    """ค้นหาบทเรียน/เอกสารอ้างอิงที่เนื้อหาใกล้เคียงกับคำถามมากที่สุด คืนเป็นลิสต์ของ (label, text) เรียงจากเกี่ยวข้องมากไปน้อย"""
     question_grams = _char_ngrams(question)
     if not question_grams:
         return []
 
     scored = []
-    lessons_qs = Lesson.objects.all()
-    if exclude_pk:
-        lessons_qs = lessons_qs.exclude(pk=exclude_pk)
-
-    for lesson_obj in lessons_qs:
-        combined_text = f"{lesson_obj.title} {lesson_obj.description} {lesson_obj.content}"
-        score = _similarity_score(question_grams, combined_text)
+    for label, text in _iter_knowledge_sources(exclude_lesson_pk=exclude_lesson_pk):
+        score = _similarity_score(question_grams, text)
         if score >= RAG_MIN_SCORE:
-            scored.append((score, lesson_obj))
+            scored.append((score, label, text))
 
-    scored.sort(key=lambda pair: pair[0], reverse=True)
-    return [lesson_obj for _, lesson_obj in scored[:top_k]]
+    scored.sort(key=lambda triple: triple[0], reverse=True)
+    return [(label, text) for _, label, text in scored[:top_k]]
+
+
+def extract_pdf_text(file_path, max_chars=200000):
+    """แกะข้อความจากไฟล์ PDF ด้วยไลบรารี pypdf คืนเป็น string (อาจได้ข้อความว่างถ้าเป็น PDF ที่สแกนมาแบบไม่มีเลเยอร์ข้อความ)
+    ใช้ตอนแอดมินอัปโหลดเอกสารอ้างอิงในหน้า Admin — โยน AskAIError ถ้าแกะไม่สำเร็จ"""
+    try:
+        import pypdf
+    except ImportError:
+        raise AskAIError("ยังไม่ได้ติดตั้งไลบรารี pypdf — รันคำสั่ง: pip install pypdf")
+
+    try:
+        reader = pypdf.PdfReader(file_path)
+        pages_text = [(page.extract_text() or "") for page in reader.pages]
+        return "\n\n".join(pages_text).strip()[:max_chars]
+    except Exception as exc:
+        raise AskAIError(f"แกะข้อความจากไฟล์ PDF ไม่สำเร็จ: {exc}")
 
 
 def ask_biology_ai(question, lesson=None):
@@ -111,10 +137,9 @@ def ask_biology_ai(question, lesson=None):
         context_blocks.append(f"[บทเรียนที่กำลังเปิดอยู่: {lesson.title}]\n{lesson_context}")
 
     try:
-        related_lessons = _retrieve_relevant_lessons(question, exclude_pk=lesson.pk if lesson is not None else None)
-        for related in related_lessons:
-            related_text = (related.content or related.description or "")[:RAG_CHUNK_CHARS]
-            context_blocks.append(f"[บทเรียนที่เกี่ยวข้องในระบบ: {related.title}]\n{related_text}")
+        related_sources = _retrieve_relevant_context(question, exclude_lesson_pk=lesson.pk if lesson is not None else None)
+        for label, related_text in related_sources:
+            context_blocks.append(f"[{label}]\n{related_text[:RAG_CHUNK_CHARS]}")
     except Exception:
         # 📌 ถ้าการค้นหาบริบทเพิ่มเติมมีปัญหา ไม่ควรทำให้ทั้งฟีเจอร์ล่ม แค่ข้ามส่วนนี้ไปแล้วตอบโดยไม่มีบริบทเสริม
         pass
@@ -123,7 +148,7 @@ def ask_biology_ai(question, lesson=None):
     if context_blocks:
         joined_context = "\n\n".join(context_blocks)
         user_message = (
-            f"บริบทเนื้อหาชีวะจากบทเรียนในระบบที่อาจเกี่ยวข้องกับคำถาม "
+            f"บริบทเนื้อหาชีวะจากบทเรียน/เอกสารอ้างอิงในระบบที่อาจเกี่ยวข้องกับคำถาม "
             f"(ใช้ประกอบการตอบถ้าเกี่ยวข้องจริง ถ้าไม่เกี่ยวก็ไม่ต้องอ้างอิงถึง):\n\n{joined_context}\n\n"
             f"คำถามของฉัน: {question}"
         )
