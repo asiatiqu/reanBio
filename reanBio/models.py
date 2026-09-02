@@ -206,18 +206,28 @@ class AttemptAnswer(models.Model):
         return f"Attempt#{self.attempt_id} - Q{self.question_id}"
 
 
-# 📌 5. ประวัติการเข้าชมบทเรียน (สำหรับแท็บ "เข้าชมล่าสุด" ในหน้าโปรไฟล์)
-# 📌 บันทึกเป็นแถวใหม่ทุกครั้งที่เข้าชม (ไม่ unique ต่อ user+lesson แล้ว) เพื่อเก็บประวัติการเข้าชมซ้ำไว้ทั้งหมด
+# 📌 5. ประวัติการเข้าชม (สำหรับแท็บ "เข้าชมล่าสุด" ในหน้าโปรไฟล์)
+# 📌 บันทึกเป็นแถวใหม่ทุกครั้งที่เข้าชม (ไม่ unique ต่อ user+รายการ) เพื่อเก็บประวัติการเข้าชมซ้ำไว้ทั้งหมด
+# 📌 รองรับหลายประเภทกิจกรรม: เปิดบทเรียน / เปิดสื่อ 3D / เล่นการ์ดคำศัพท์จากคลังกลาง / เล่นการ์ดของฉัน
 class LessonView(models.Model):
+    ACTIVITY_CHOICES = (
+        ('lesson', 'เปิดบทเรียน'),
+        ('lesson_3d', 'เปิดสื่อ 3D Interactive'),
+        ('flashcard_bank', 'เล่นการ์ดคำศัพท์ (คลังกลาง)'),
+        ('flashcard_deck', 'เปิดชุดการ์ดของฉัน'),
+    )
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='lesson_views', verbose_name="ผู้ใช้งาน")
-    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='views', verbose_name="บทเรียนที่เข้าชม")
+    activity_type = models.CharField(max_length=20, choices=ACTIVITY_CHOICES, default='lesson', verbose_name="ประเภทกิจกรรม")
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='views', null=True, blank=True, verbose_name="บทเรียนที่เข้าชม")
+    flashcard_deck = models.ForeignKey('FlashcardDeck', on_delete=models.SET_NULL, related_name='views', null=True, blank=True, verbose_name="ชุดการ์ดที่เข้าชม")
+    label = models.CharField(max_length=200, blank=True, default="", verbose_name="รายละเอียดเพิ่มเติม (เช่น ตัวกรองที่ใช้ หรือชื่อชุดการ์ดสำรอง)")
     viewed_at = models.DateTimeField(auto_now_add=True, verbose_name="เข้าชมเมื่อ")
 
     class Meta:
         ordering = ['-viewed_at']
 
     def __str__(self):
-        return f"{self.user} เข้าชม {self.lesson} เมื่อ {self.viewed_at}"
+        return f"{self.user} - {self.get_activity_type_display()} เมื่อ {self.viewed_at}"
 
 
 # 📌 6. เครื่องมือจัดการห้องเรียนสำหรับคุณครู (คลิปวิดีโอ / ไฟล์เอกสาร / แบบทดสอบที่สร้างเอง)

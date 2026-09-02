@@ -249,6 +249,14 @@ def flashcards_view(request):
     show_my_decks_tab = request.user.is_authenticated and not getattr(request.user, 'is_teacher', False)
     my_decks = FlashcardDeck.objects.filter(owner=request.user) if show_my_decks_tab else None
 
+    initial_tab = request.GET.get('tab', 'bank')
+
+    # 📌 บันทึกการเล่นการ์ดคำศัพท์จากคลังกลาง (เฉพาะตอนเปิดแท็บนี้จริงๆ) ไว้แสดงประวัติในแท็บ "เข้าชมล่าสุด" ของหน้าโปรไฟล์
+    if request.user.is_authenticated and initial_tab == 'bank':
+        grade_label = dict(Lesson.GRADE_CHOICES).get(grade_filter, 'ทุกระดับชั้น')
+        filter_label = f"{grade_label} · บทที่ {chapter_filter}" if chapter_filter else grade_label
+        LessonView.objects.create(user=request.user, activity_type='flashcard_bank', label=filter_label)
+
     return render(request, 'reanBio/flashcards.html', {
         'cards_json': json.dumps(cards, ensure_ascii=False),
         'card_count': len(cards),
@@ -257,7 +265,7 @@ def flashcards_view(request):
         'available_chapters': available_chapters,
         'show_my_decks_tab': show_my_decks_tab,
         'my_decks': my_decks,
-        'initial_tab': request.GET.get('tab', 'bank'),
+        'initial_tab': initial_tab,
     })
 
 
@@ -613,6 +621,48 @@ def classroom_quiz_export_view(request, quiz_pk):
     return response
 
 
+# 📌 แปลงแถวประวัติการเข้าชม (LessonView) ให้เป็น dict ที่มีหน้าตาเดียวกันสำหรับทุกประเภทกิจกรรม
+# เพื่อให้เทมเพลตแสดงผลบทเรียน / สื่อ 3D / การ์ดคำศัพท์ ในตารางเดียวกันได้ง่ายๆ
+def _build_recent_views(user):
+    rows = LessonView.objects.filter(user=user).select_related('lesson', 'flashcard_deck')[:10]
+    items = []
+    for v in rows:
+        if v.activity_type == 'lesson_3d' and v.lesson:
+            items.append({
+                'icon': '🧊',
+                'title': f"สื่อ 3D: {v.lesson.title}",
+                'subtitle': f"{v.lesson.get_grade_display()} · หัวข้อ {v.lesson.subtopic_code}",
+                'url': reverse('lesson_3d', kwargs={'pk': v.lesson.pk}),
+                'viewed_at': v.viewed_at,
+            })
+        elif v.activity_type == 'flashcard_bank':
+            items.append({
+                'icon': '🗂️',
+                'title': 'การ์ดคำศัพท์ (คลังกลาง)',
+                'subtitle': v.label or 'ทุกระดับชั้น',
+                'url': f"{reverse('flashcards')}?tab=bank",
+                'viewed_at': v.viewed_at,
+            })
+        elif v.activity_type == 'flashcard_deck':
+            deck_title = v.flashcard_deck.title if v.flashcard_deck else (v.label or 'ชุดการ์ดที่ถูกลบไปแล้ว')
+            items.append({
+                'icon': '🗃️',
+                'title': deck_title,
+                'subtitle': 'การ์ดของฉัน',
+                'url': reverse('flashcard_deck_detail', kwargs={'deck_pk': v.flashcard_deck.pk}) if v.flashcard_deck else f"{reverse('flashcards')}?tab=mine",
+                'viewed_at': v.viewed_at,
+            })
+        elif v.lesson:  # activity_type == 'lesson' (ค่าเริ่มต้น รวมถึงข้อมูลเก่าก่อนมีคอลัมน์นี้)
+            items.append({
+                'icon': '📖',
+                'title': v.lesson.title,
+                'subtitle': f"{v.lesson.get_grade_display()} · บทที่ {v.lesson.chapter}",
+                'url': reverse('lesson_detail', kwargs={'pk': v.lesson.pk}),
+                'viewed_at': v.viewed_at,
+            })
+    return items
+
+
 @login_required
 def profile(request):
     try:
@@ -630,8 +680,8 @@ def profile(request):
     context = {
         'profile': user_profile,
         'classrooms': classrooms,
-        # 📌 แท็บ "เข้าชมล่าสุด": บทเรียนที่เปิดดูล่าสุด (บันทึกไว้ตอนเข้า lesson_detail_view)
-        'recent_views': LessonView.objects.filter(user=request.user).select_related('lesson')[:10],
+        # 📌 แท็บ "เข้าชมล่าสุด": บทเรียน / สื่อ 3D / การ์ดคำศัพท์ ที่เปิดดูล่าสุด (บันทึกไว้ตอนเข้าแต่ละหน้า)
+        'recent_views': _build_recent_views(request.user),
     }
     # 📌 แท็บ "แดชบอร์ด" ในหน้าโปรไฟล์: สรุปคะแนนแบบฝึกหัด/ข้อสอบ (เฉพาะนักเรียน คุณครูมีแดชบอร์ดห้องเรียนแยกต่างหาก)
     if not is_teacher:
@@ -658,7 +708,7 @@ def lesson_detail_view(request, pk):
 
     # 📌 บันทึกการเข้าชมบทเรียนนี้เป็นแถวใหม่เสมอ (ไม่ทับของเดิม) ไว้แสดงประวัติในแท็บ "เข้าชมล่าสุด" ของหน้าโปรไฟล์
     if request.user.is_authenticated:
-        LessonView.objects.create(user=request.user, lesson=lesson)
+        LessonView.objects.create(user=request.user, activity_type='lesson', lesson=lesson)
 
     return render(request, 'reanBio/lesson_detail.html', {
         'lesson': lesson,
@@ -677,6 +727,11 @@ def lesson_3d_view(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
     if lesson.subtopic_code not in LESSON_3D_SUBTOPIC_CODES:
         raise Http404("บทเรียนนี้ยังไม่มีสื่อ 3D Interactive")
+
+    # 📌 บันทึกการเข้าชมสื่อ 3D นี้ ไว้แสดงประวัติในแท็บ "เข้าชมล่าสุด" ของหน้าโปรไฟล์
+    if request.user.is_authenticated:
+        LessonView.objects.create(user=request.user, activity_type='lesson_3d', lesson=lesson)
+
     return render(request, 'reanBio/lesson_3d.html', {'lesson': lesson})
 
 
@@ -886,6 +941,9 @@ def flashcard_deck_detail_view(request, deck_pk):
             next_order = deck.cards.count() + 1
             Flashcard.objects.create(deck=deck, front=front, back=back, order=next_order)
             return redirect('flashcard_deck_detail', deck_pk=deck.pk)
+    else:
+        # 📌 บันทึกการเปิดชุดการ์ดนี้ (เฉพาะตอนเข้ามาดู ไม่นับตอนส่งฟอร์มเพิ่มการ์ด) ไว้แสดงประวัติในแท็บ "เข้าชมล่าสุด"
+        LessonView.objects.create(user=request.user, activity_type='flashcard_deck', flashcard_deck=deck, label=deck.title)
 
     return render(request, 'reanBio/flashcard_deck_detail.html', {'deck': deck, 'cards': deck.cards.all()})
 
@@ -913,6 +971,10 @@ def flashcard_deck_study_view(request, deck_pk):
     """โหมดพลิกการ์ดทบทวน ใช้รูปแบบเดียวกับหน้าการ์ดคำศัพท์หลัก"""
     deck = get_object_or_404(FlashcardDeck, pk=deck_pk, owner=request.user)
     cards = [{'front': c.front, 'back': c.back} for c in deck.cards.all()]
+
+    # 📌 บันทึกการทบทวนชุดการ์ดนี้ ไว้แสดงประวัติในแท็บ "เข้าชมล่าสุด" ของหน้าโปรไฟล์
+    LessonView.objects.create(user=request.user, activity_type='flashcard_deck', flashcard_deck=deck, label=deck.title)
+
     return render(request, 'reanBio/flashcard_deck_study.html', {
         'deck': deck,
         'cards_json': json.dumps(cards, ensure_ascii=False),

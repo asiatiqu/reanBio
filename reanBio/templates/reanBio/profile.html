@@ -137,19 +137,19 @@
                 <table class="w-full text-sm text-left">
                     <thead>
                         <tr class="text-slate-400 text-xs uppercase">
-                            <th class="py-2 pr-4">บทเรียน</th>
-                            <th class="py-2 pr-4">ระดับชั้น / บทที่</th>
-                            <th class="py-2 pr-4">เข้าชมล่าสุดเมื่อ</th>
+                            <th class="py-2 pr-4">กิจกรรม</th>
+                            <th class="py-2 pr-4">รายละเอียด</th>
+                            <th class="py-2 pr-4">เข้าชมเมื่อ</th>
                             <th class="py-2 pr-4"></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for v in recent_views %}
                         <tr class="border-t border-slate-100">
-                            <td class="py-2.5 pr-4 font-semibold text-slate-700">{{ v.lesson.title }}</td>
-                            <td class="py-2.5 pr-4 text-slate-500">{{ v.lesson.get_grade_display }} · บทที่ {{ v.lesson.chapter }}</td>
+                            <td class="py-2.5 pr-4 font-semibold text-slate-700">{{ v.icon }} {{ v.title }}</td>
+                            <td class="py-2.5 pr-4 text-slate-500">{{ v.subtitle }}</td>
                             <td class="py-2.5 pr-4 text-slate-500">{{ v.viewed_at|date:"d/m/Y H:i" }}</td>
-                            <td class="py-2.5 pr-4"><a href="{% url 'lesson_detail' pk=v.lesson.pk %}" class="text-bio-main font-semibold hover:underline">เปิดอีกครั้ง →</a></td>
+                            <td class="py-2.5 pr-4"><a href="{{ v.url }}" class="text-bio-main font-semibold hover:underline">เปิดอีกครั้ง →</a></td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -157,8 +157,8 @@
             </div>
             {% else %}
             <div class="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-3">
-                <p class="font-semibold text-base text-slate-700">ยังไม่มีประวัติการเข้าชมบทเรียน</p>
-                <p class="text-xs text-slate-400">ลองเปิดอ่านบทเรียนสักบทดูก่อนนะ แล้วจะขึ้นตรงนี้ให้เอง</p>
+                <p class="font-semibold text-base text-slate-700">ยังไม่มีประวัติการเข้าชม</p>
+                <p class="text-xs text-slate-400">ลองเปิดอ่านบทเรียน เล่นการ์ดคำศัพท์ หรือเปิดสื่อ 3D ดูก่อนนะ แล้วจะขึ้นตรงนี้ให้เอง</p>
             </div>
             {% endif %}
         </div>
