@@ -25,10 +25,15 @@ class AttemptAdmin(admin.ModelAdmin):
 @admin.register(AIFeedback)
 class AIFeedbackAdmin(admin.ModelAdmin):
     # 📌 ใช้ดูว่าคำตอบของฟีเจอร์ "ถาม AI" ช่วยผู้ใช้ได้จริงไหม (👍/👎) เพื่อเอาไปปรับปรุง system prompt/เนื้อหาต่อ
+    # แถวพวกนี้ถูกสร้างจากปุ่ม 👍👎 บนเว็บเท่านั้น ไม่ใช่ที่กรอกเองใน Admin (ทุกช่องเลยตั้ง readonly หมด)
+    # เลยปิดปุ่ม "Add" ไปเลย กันไม่ให้กดเข้ามาแล้วงง ว่าทำไมกรอกอะไรไม่ได้
     list_display = ('user', 'is_helpful', 'lesson', 'created_at')
     list_filter = ('is_helpful', 'lesson')
     search_fields = ('question', 'answer', 'user__username')
     readonly_fields = ('user', 'question', 'answer', 'lesson', 'is_helpful', 'created_at')
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(KnowledgeDocument)
