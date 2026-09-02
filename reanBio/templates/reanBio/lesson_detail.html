@@ -103,6 +103,45 @@
             </div>
         </div>
         {% endif %}
+
+        <!-- 📌 กล่อง "ถาม AI เกี่ยวกับบทเรียนนี้" -->
+        <div class="pt-4">
+            <div class="p-6 bg-bio-light/40 border border-bio-light rounded-3xl space-y-4">
+                <h3 class="text-lg font-bold text-bio-dark flex items-center gap-2">🤖 ถาม AI เกี่ยวกับบทเรียนนี้</h3>
+                {% if request.user.is_authenticated %}
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
+                        <div class="flex-1">
+                            <textarea name="ai_question" rows="2" required maxlength="800"
+                                placeholder="เช่น ย่อหน้านี้หมายความว่ายังไง?"
+                                class="w-full px-4 py-3 bg-white border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main transition">{{ ai_question }}</textarea>
+                        </div>
+                        <button type="submit" class="px-6 py-3 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-sm shadow transition whitespace-nowrap">
+                            ส่งคำถาม
+                        </button>
+                    </div>
+                </form>
+
+                {% if ai_error %}
+                <div class="px-4 py-3 rounded-2xl text-sm font-semibold bg-red-50 text-red-600 border border-red-100">
+                    ⚠️ {{ ai_error }}
+                </div>
+                {% endif %}
+
+                {% if ai_answer %}
+                <div class="p-6 bg-white rounded-2xl text-slate-700 leading-relaxed text-sm whitespace-pre-line">
+                    <p class="font-bold text-bio-dark text-xs mb-2">🤖 คำตอบจาก AI</p>
+                    {{ ai_answer }}
+                </div>
+                {% endif %}
+                {% else %}
+                <p class="text-xs text-slate-500">
+                    <a href="{% url 'login' %}" class="text-bio-main font-semibold hover:underline">เข้าสู่ระบบ</a> ก่อนเพื่อถาม AI เกี่ยวกับบทเรียนนี้ได้
+                </p>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
 </div>

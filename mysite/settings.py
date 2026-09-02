@@ -10,10 +10,19 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# 📌 โหลดค่าจากไฟล์ .env (เช่น ANTHROPIC_API_KEY) ถ้ามีไฟล์นี้อยู่
+# ต้องติดตั้งก่อน: pip install python-dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv(BASE_DIR / '.env')
+except ImportError:
+    pass
 
 
 # Quick-start development settings - unsuitable for production
@@ -132,3 +141,9 @@ CSRF_TRUSTED_ORIGINS = [
     'https://*.ngrok-free.app',
     'https://*.ngrok.io',
 ]
+
+# 📌 ฟีเจอร์ "ถาม AI" (ตอบคำถามวิชาชีววิทยา): ต้องสมัคร API key จาก https://console.anthropic.com เอง
+# แล้วใส่ค่าไว้ในไฟล์ .env (ห้ามใส่ค่าตรงนี้ในโค้ด เพราะจะหลุดขึ้น GitHub ได้)
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+# ชื่อโมเดลตรวจสอบล่าสุดได้ที่ https://docs.claude.com/en/docs/about-claude/models
+ANTHROPIC_MODEL = os.environ.get('ANTHROPIC_MODEL', 'claude-haiku-4-5')

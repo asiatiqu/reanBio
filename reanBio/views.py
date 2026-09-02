@@ -24,6 +24,7 @@ from .models import (
     ClassroomQuizAttempt, ClassroomQuizAnswer, FlashcardDeck, Flashcard,
 )
 from .forms import UserSignUpForm
+from .ai_helper import ask_biology_ai, AskAIError
 
 
 # 📌 ช่วยเน้นคำค้นหาในเนื้อหา และตัดข้อความให้เหลือแค่ช่วงที่เจอคำ (snippet)
@@ -104,6 +105,28 @@ def teacher_required(view_func):
 
 def home(request):
     return render(request, 'index.html')
+
+
+# 📌 หน้า "ถาม AI" แยกต่างหาก: ถามคำถามชีววิทยาทั่วไป (ไม่ผูกกับบทเรียนใดบทเรียนหนึ่ง)
+# ใช้ได้ทั้งนักเรียนและคุณครู
+@login_required
+def ask_ai_view(request):
+    ai_question = ''
+    ai_answer = ''
+    ai_error = ''
+    if request.method == 'POST':
+        ai_question = request.POST.get('ai_question', '').strip()
+        try:
+            ai_answer = ask_biology_ai(ai_question)
+        except AskAIError as exc:
+            ai_error = str(exc)
+
+    return render(request, 'reanBio/ask_ai.html', {
+        'ai_question': ai_question,
+        'ai_answer': ai_answer,
+        'ai_error': ai_error,
+    })
+
 
 def signup(request):
     if request.method == 'POST':
@@ -710,11 +733,25 @@ def lesson_detail_view(request, pk):
     if request.user.is_authenticated:
         LessonView.objects.create(user=request.user, activity_type='lesson', lesson=lesson)
 
+    # 📌 กล่อง "ถาม AI เกี่ยวกับบทเรียนนี้" ฝังอยู่ในหน้านี้ (ต้องล็อกอินก่อนถึงจะถามได้)
+    ai_question = ''
+    ai_answer = ''
+    ai_error = ''
+    if request.method == 'POST' and request.user.is_authenticated:
+        ai_question = request.POST.get('ai_question', '').strip()
+        try:
+            ai_answer = ask_biology_ai(ai_question, lesson=lesson)
+        except AskAIError as exc:
+            ai_error = str(exc)
+
     return render(request, 'reanBio/lesson_detail.html', {
         'lesson': lesson,
         'content_html': content_html,
         'search_query': search_query,
         'is_teacher': is_teacher,
+        'ai_question': ai_question,
+        'ai_answer': ai_answer,
+        'ai_error': ai_error,
     })
 
 

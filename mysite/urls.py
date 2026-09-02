@@ -7,6 +7,7 @@ from reanBio import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.home, name='home'),
+    path('ask-ai/', views.ask_ai_view, name='ask_ai'),
     path('signup/', views.signup, name='signup'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.user_logout, name='logout'),
