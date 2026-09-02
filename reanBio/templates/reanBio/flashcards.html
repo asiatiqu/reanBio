@@ -130,7 +130,7 @@
 
     {% if show_my_decks_tab %}
     <!-- ==================== แท็บ 2: การ์ดของฉัน (ชุดที่นักเรียนสร้างเอง) ==================== -->
-    <div id="tab-mine" class="hidden flex-col gap-6">
+    <div id="tab-mine" class="hidden flex flex-col gap-6">
 
         <form method="post" action="{% url 'my_flashcards' %}" class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-md p-6 md:p-8 flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
             {% csrf_token %}
