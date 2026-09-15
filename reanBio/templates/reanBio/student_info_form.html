@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}กรอกข้อมูลนักเรียน - reanBio{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-md bg-white/90 backdrop-blur-md rounded-[40px] border border-white shadow-xl p-8 md:p-10 z-10 relative space-y-6">
+
+    <div class="text-center space-y-2">
+        <a href="{% url 'home' %}" class="inline-block hover:scale-105 transition duration-300">
+            <img src="{% static 'reanBio/images/reanbio.png' %}" alt="reanBio Logo"
+                class="h-16 w-auto mx-auto object-contain">
+        </a>
+        <h2 class="text-3xl font-bold text-bio-dark">ข้อมูลนักเรียน</h2>
+        <p class="text-slate-500 text-sm">
+            กรอกครั้งเดียว ใช้ได้กับทุกห้องเรียนและทุกแบบทดสอบ ไม่ต้องกรอกซ้ำอีก
+        </p>
+    </div>
+
+    <form method="post" class="space-y-5">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+
+        <div class="space-y-1.5">
+            <label for="full_name" class="block text-sm font-semibold text-bio-dark">
+                ชื่อ-นามสกุล:
+            </label>
+            <input type="text" name="full_name" id="full_name" value="{{ profile.full_name|default:'' }}" required
+                class="w-full px-5 py-3.5 bg-bio-light/50 border border-bio-light rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition duration-200">
+        </div>
+
+        <div class="space-y-1.5">
+            <label for="student_class" class="block text-sm font-semibold text-bio-dark">
+                ชั้น (เช่น ม.5/1):
+            </label>
+            <input type="text" name="student_class" id="student_class" value="{{ profile.student_class|default:'' }}"
+                required
+                class="w-full px-5 py-3.5 bg-bio-light/50 border border-bio-light rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition duration-200">
+        </div>
+
+        <div class="space-y-1.5">
+            <label for="student_number" class="block text-sm font-semibold text-bio-dark">
+                เลขที่:
+            </label>
+            <input type="text" name="student_number" id="student_number"
+                value="{{ profile.student_number|default:'' }}" required
+                class="w-full px-5 py-3.5 bg-bio-light/50 border border-bio-light rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition duration-200">
+        </div>
+
+        <button type="submit"
+            class="w-full py-3.5 bg-gradient-to-r from-bio-main to-bio-dark text-white font-bold rounded-full shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-95 transition duration-300 text-base mt-2">
+            บันทึกและดำเนินการต่อ
+        </button>
+    </form>
+
+</div>
+{% endblock %}

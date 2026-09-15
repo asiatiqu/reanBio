@@ -11,19 +11,19 @@ from django.db.models import Q
 from django.http import HttpResponse, Http404, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
-from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.utils.html import escape
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from .models import (
     UserProfile, Classroom, Lesson, Question, Choice, Attempt, AttemptAnswer, Checkpoint, LessonView,
     ClassroomVideo, ClassroomFile, ClassroomQuiz, ClassroomQuizQuestion, ClassroomQuizChoice,
     ClassroomQuizAttempt, ClassroomQuizAnswer, FlashcardDeck, Flashcard, AIFeedback,
 )
-from .forms import UserSignUpForm
+from .forms import UserSignUpForm, EmailOrUsernameAuthenticationForm
 from .ai_helper import ask_biology_ai, AskAIError
 
 
@@ -162,6 +162,8 @@ def ai_feedback_view(request):
 
 
 def signup(request):
+    next_url = _safe_next_url(request)
+
     if request.method == 'POST':
         form = UserSignUpForm(request.POST)
         if form.is_valid():
@@ -177,18 +179,33 @@ def signup(request):
                 grade=user_grade
             )
 
-            login(request, user)
+            # 📌 ตอนนี้มี auth backend มากกว่า 1 ตัว (เข้าสู่ระบบด้วย username/อีเมลได้) ต้องระบุ backend ให้ login() ชัดเจน
+            login(request, user, backend='reanBio.auth_backends.EmailOrUsernameModelBackend')
+            # 📌 ถ้ามาจากลิงก์ที่ระบุปลายทางไว้ (เช่น กดสมัครจากหน้าการ์ดคำศัพท์) ให้กลับไปหน้านั้นก่อน
+            if next_url:
+                return redirect(next_url)
             if getattr(user, 'is_teacher', False):
                 return redirect('teacher_dashboard')
             return redirect('home')
     else:
         form = UserSignUpForm()
 
-    return render(request, 'reanBio/signup.html', {'form': form})
+    return render(request, 'reanBio/signup.html', {'form': form, 'next': next_url})
+
+def _safe_next_url(request):
+    """📌 กันลิงก์เปิดเว็บอื่น (open redirect): รับพารามิเตอร์ next ได้เฉพาะลิงก์ภายในเว็บนี้เท่านั้น"""
+    next_url = request.POST.get('next') or request.GET.get('next') or ''
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        next_url = ''
+    return next_url
+
 
 def login_view(request):
+    next_url = _safe_next_url(request)
+
     if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
+        # 📌 เข้าสู่ระบบได้ทั้งด้วย username หรืออีเมล (ดูตรรกะจริงที่ reanBio/auth_backends.py)
+        form = EmailOrUsernameAuthenticationForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
 
@@ -197,13 +214,47 @@ def login_view(request):
                 form.add_error(None, 'บัญชีผู้ดูแลระบบ (Admin) ไม่สามารถเข้าใช้งานหน้านี้ได้ กรุณาเข้าสู่ระบบผ่านหน้า /admin/')
             else:
                 login(request, user)
+                # 📌 ถ้ามาจากลิงก์ที่ระบุปลายทางไว้ (เช่น กดสมัคร/ล็อกอินจากหน้าการ์ดคำศัพท์) ให้กลับไปหน้านั้นก่อน
+                if next_url:
+                    return redirect(next_url)
                 if getattr(user, 'is_teacher', False):
                     return redirect('teacher_dashboard')
                 return redirect('home')
     else:
-        form = AuthenticationForm()
+        form = EmailOrUsernameAuthenticationForm()
 
-    return render(request, 'reanBio/login.html', {'form': form})
+    return render(request, 'reanBio/login.html', {'form': form, 'next': next_url})
+
+
+# 📌 กรอกข้อมูลนักเรียน (ชื่อ-นามสกุล/ชั้น/เลขที่) ครั้งเดียว ใช้ซ้ำได้ทุกห้องเรียน/แบบทดสอบ
+# ถูกเรียกตอนนักเรียนกดเข้าห้องเรียนครั้งแรก (หรือกดเริ่มทำแบบทดสอบตรงๆ โดยยังไม่เคยกรอก)
+@login_required
+def student_info_view(request):
+    if getattr(request.user, 'is_teacher', False):
+        return redirect('teacher_dashboard')
+
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    next_url = _safe_next_url(request)
+
+    if request.method == 'POST':
+        full_name = request.POST.get('full_name', '').strip()
+        student_class = request.POST.get('student_class', '').strip()
+        student_number = request.POST.get('student_number', '').strip()
+
+        if not full_name or not student_class or not student_number:
+            messages.error(request, 'กรุณากรอกข้อมูลให้ครบทุกช่อง')
+        else:
+            profile.full_name = full_name
+            profile.student_class = student_class
+            profile.student_number = student_number
+            profile.save()
+            messages.success(request, 'บันทึกข้อมูลเรียบร้อยแล้ว')
+            return redirect(next_url or 'my_classrooms')
+
+    return render(request, 'reanBio/student_info_form.html', {
+        'profile': profile,
+        'next': next_url,
+    })
 
 def lessons_view(request):
     grade_filter = request.GET.get('grade', 'all')
@@ -277,23 +328,30 @@ def flashcards_view(request):
     if chapter_filter.isdigit():
         questions = questions.filter(lesson__chapter=int(chapter_filter))
 
-    questions = list(questions)
-    random.shuffle(questions)
-    questions = questions[:60]  # จำกัดจำนวนการ์ดต่อรอบไม่ให้เยอะเกินไป
+    # 📌 ต้องสมัครสมาชิก/เข้าสู่ระบบก่อนถึงจะทบทวนการ์ดได้จริง (คนที่ยังไม่ล็อกอินเห็นแค่จำนวนการ์ด กดทบทวนไม่ได้)
+    # เลยไม่ส่งเนื้อหาการ์ด (คำถาม/เฉลย) ไปกับหน้าเว็บเลยถ้ายังไม่ได้ล็อกอิน กันดูเฉลยผ่าน view source ได้ด้วย
+    if request.user.is_authenticated:
+        questions = list(questions)
+        random.shuffle(questions)
+        questions = questions[:60]  # จำกัดจำนวนการ์ดต่อรอบไม่ให้เยอะเกินไป
 
-    cards = []
-    for q in questions:
-        if q.question_type == 'mcq':
-            back = next((c.text for c in q.choices.all() if c.is_correct), '')
-        else:
-            back = (q.accepted_answers or [''])[0]
-        if q.explanation:
-            back = f"{back}\n\n{q.explanation}" if back else q.explanation
-        cards.append({
-            'front': q.text,
-            'back': back or 'ยังไม่มีเฉลยสำหรับข้อนี้',
-            'lesson': f"{q.lesson.subtopic_code} {q.lesson.title}".strip(),
-        })
+        cards = []
+        for q in questions:
+            if q.question_type == 'mcq':
+                back = next((c.text for c in q.choices.all() if c.is_correct), '')
+            else:
+                back = (q.accepted_answers or [''])[0]
+            if q.explanation:
+                back = f"{back}\n\n{q.explanation}" if back else q.explanation
+            cards.append({
+                'front': q.text,
+                'back': back or 'ยังไม่มีเฉลยสำหรับข้อนี้',
+                'lesson': f"{q.lesson.subtopic_code} {q.lesson.title}".strip(),
+            })
+        card_count = len(cards)
+    else:
+        cards = []
+        card_count = min(questions.count(), 60)
 
     chapters_by_grade = _chapters_by_grade()
     if grade_filter in chapters_by_grade:
@@ -315,7 +373,7 @@ def flashcards_view(request):
 
     return render(request, 'reanBio/flashcards.html', {
         'cards_json': json.dumps(cards, ensure_ascii=False),
-        'card_count': len(cards),
+        'card_count': card_count,
         'current_grade': grade_filter,
         'current_chapter': chapter_filter,
         'available_chapters': available_chapters,
@@ -379,6 +437,11 @@ def classroom_detail_view(request, code):
 
     # 📌 ให้นักเรียนเห็นสถานะการทำแบบทดสอบของตัวเอง (ทำได้คนละครั้งเดียว)
     if not getattr(request.user, 'is_teacher', False):
+        # 📌 นักเรียนที่ยังไม่เคยกรอกชื่อ/ชั้น/เลขที่: เด้งไปกรอกก่อน แล้วค่อยกลับมาที่ห้องเรียนนี้
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        if not profile.has_student_info:
+            return redirect(f"{reverse('student_info')}?next={request.path}")
+
         my_attempts = {
             a.quiz_id: a for a in
             ClassroomQuizAttempt.objects.filter(quiz__classroom=classroom, user=request.user)
@@ -521,8 +584,8 @@ def classroom_add_quiz_view(request, code):
 
 @login_required
 def classroom_quiz_start_view(request, quiz_pk):
-    """หน้ากรอกข้อมูลผู้ทำ (ชื่อ-นามสกุล/ชั้น/เลขที่) ก่อนเริ่มทำแบบทดสอบ
-    ทำได้คนละครั้งเดียวต่อแบบทดสอบหนึ่งชุด: ถ้าเคยเริ่มไว้แล้วให้กลับไปทำต่อ/ดูผลแทนการเริ่มใหม่"""
+    """เริ่มทำแบบทดสอบทันที โดยใช้ชื่อ-นามสกุล/ชั้น/เลขที่ ที่นักเรียนกรอกไว้ครั้งเดียวตอนเข้าห้องเรียน (UserProfile)
+    ไม่ต้องกรอกซ้ำทุกครั้งที่ทำข้อสอบ ทำได้คนละครั้งเดียวต่อแบบทดสอบหนึ่งชุด: ถ้าเคยเริ่มไว้แล้วให้กลับไปทำต่อ/ดูผลแทนการเริ่มใหม่"""
     quiz = get_object_or_404(ClassroomQuiz, pk=quiz_pk)
     if getattr(request.user, 'is_teacher', False):
         messages.info(request, "บทบาทคุณครูใช้สำหรับสร้างแบบทดสอบเท่านั้น ไม่มีการทำแบบทดสอบ")
@@ -535,45 +598,35 @@ def classroom_quiz_start_view(request, quiz_pk):
             return redirect('classroom_quiz_result', attempt_pk=existing.pk)
         return redirect('classroom_quiz_take', attempt_pk=existing.pk)
 
+    # 🛑 กันกรณีเข้ามาตรงๆ ทาง URL โดยยังไม่เคยกรอกชื่อ/ชั้น/เลขที่ (ปกติจะถูกดักไว้ตั้งแต่หน้าห้องเรียนแล้ว)
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    if not profile.has_student_info:
+        return redirect(f"{reverse('student_info')}?next={request.path}")
+
     questions = list(quiz.questions.prefetch_related('choices').all())
     if not questions:
         messages.error(request, 'แบบทดสอบนี้ยังไม่มีคำถาม')
         return redirect('classroom_detail', code=quiz.classroom.code)
 
-    if request.method == 'POST':
-        student_name = request.POST.get('student_name', '').strip()
-        student_class = request.POST.get('student_class', '').strip()
-        student_number = request.POST.get('student_number', '').strip()
+    try:
+        attempt = ClassroomQuizAttempt.objects.create(
+            quiz=quiz, user=request.user, max_score=sum(q.points for q in questions),
+            student_name=profile.full_name, student_class=profile.student_class,
+            student_number=profile.student_number,
+        )
+    except IntegrityError:
+        # 🛑 กันกรณีกดส่งซ้ำ/เปิดสองแท็บพร้อมกันแล้วสร้างซ้ำ (unique_together กันไว้อีกชั้น)
+        existing = ClassroomQuizAttempt.objects.filter(quiz=quiz, user=request.user).first()
+        if existing:
+            if existing.submitted_at:
+                return redirect('classroom_quiz_result', attempt_pk=existing.pk)
+            return redirect('classroom_quiz_take', attempt_pk=existing.pk)
+        raise
 
-        if not student_name or not student_class or not student_number:
-            messages.error(request, 'กรุณากรอกข้อมูลให้ครบทุกช่อง')
-            return render(request, 'reanBio/classroom_quiz_prestart.html', {
-                'quiz': quiz,
-                'student_name': student_name,
-                'student_class': student_class,
-                'student_number': student_number,
-            })
+    for i, q in enumerate(questions, start=1):
+        ClassroomQuizAnswer.objects.create(attempt=attempt, question=q, order=i)
 
-        try:
-            attempt = ClassroomQuizAttempt.objects.create(
-                quiz=quiz, user=request.user, max_score=sum(q.points for q in questions),
-                student_name=student_name, student_class=student_class, student_number=student_number,
-            )
-        except IntegrityError:
-            # 🛑 กันกรณีกดส่งซ้ำ/เปิดสองแท็บพร้อมกันแล้วสร้างซ้ำ (unique_together กันไว้อีกชั้น)
-            existing = ClassroomQuizAttempt.objects.filter(quiz=quiz, user=request.user).first()
-            if existing:
-                if existing.submitted_at:
-                    return redirect('classroom_quiz_result', attempt_pk=existing.pk)
-                return redirect('classroom_quiz_take', attempt_pk=existing.pk)
-            raise
-
-        for i, q in enumerate(questions, start=1):
-            ClassroomQuizAnswer.objects.create(attempt=attempt, question=q, order=i)
-
-        return redirect('classroom_quiz_take', attempt_pk=attempt.pk)
-
-    return render(request, 'reanBio/classroom_quiz_prestart.html', {'quiz': quiz})
+    return redirect('classroom_quiz_take', attempt_pk=attempt.pk)
 
 
 @login_required

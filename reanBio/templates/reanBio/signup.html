@@ -21,6 +21,7 @@
     <!-- ฟอร์มสมัครสมาชิก -->
     <form method="post" class="space-y-4">
         {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
 
         {% if form.non_field_errors %}
         <div class="bg-rose-50 text-rose-600 text-xs p-3 rounded-2xl border border-rose-200 text-center">
@@ -69,7 +70,7 @@
     <div class="text-center pt-2 space-y-3">
         <p class="text-sm text-slate-500">
             มีบัญชีอยู่แล้วใช่ไหม?
-            <a href="{% url 'login' %}"
+            <a href="{% url 'login' %}{% if next %}?next={{ next|urlencode }}{% endif %}"
                 class="text-bio-dark font-bold hover:underline hover:text-bio-main transition">
                 เข้าสู่ระบบ
             </a>

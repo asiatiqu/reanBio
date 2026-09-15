@@ -137,6 +137,12 @@ ADMIN_SESSION_COOKIE_NAME = 'reanbio_admin_session'
 # บอก Django ให้ใช้ User Model จากแอป reanBio
 AUTH_USER_MODEL = 'reanBio.User'
 
+# 📌 เข้าสู่ระบบได้ทั้งด้วย username หรืออีเมล (ดู reanBio/auth_backends.py)
+AUTHENTICATION_BACKENDS = [
+    'reanBio.auth_backends.EmailOrUsernameModelBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 CSRF_TRUSTED_ORIGINS = [
     'https://*.ngrok-free.app',
     'https://*.ngrok.io',
@@ -147,3 +153,17 @@ CSRF_TRUSTED_ORIGINS = [
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 # ชื่อโมเดลตรวจสอบล่าสุดได้ที่ https://docs.claude.com/en/docs/about-claude/models
 ANTHROPIC_MODEL = os.environ.get('ANTHROPIC_MODEL', 'claude-haiku-4-5')
+
+# 📌 ฟีเจอร์ "ลืมรหัสผ่าน" (ส่งลิงก์ตั้งรหัสผ่านใหม่ไปทางอีเมล) — ต้องตั้งค่าบัญชีสำหรับส่งอีเมลใน .env เอง
+# ถ้ายังไม่ได้ตั้งค่า EMAIL_HOST ระบบจะพิมพ์อีเมลออกทาง console แทนการส่งจริง (ใช้ทดสอบได้ แต่ผู้ใช้จริงจะไม่ได้รับอีเมล)
+if os.environ.get('EMAIL_HOST'):
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+    EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+    EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+    EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'reanBio <noreply@reanbio.local>')
+PASSWORD_RESET_TIMEOUT = 3600  # 📌 ลิงก์รีเซ็ตรหัสผ่านหมดอายุใน 1 ชั่วโมง (หน่วยวินาที)

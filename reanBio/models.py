@@ -42,15 +42,25 @@ class User(AbstractUser):
 # 📌 2. UserProfile Model
 class UserProfile(models.Model):
     user = models.OneToOneField(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
         related_name='userprofile',
         verbose_name="ผู้ใช้งาน"
     )
     grade = models.CharField(max_length=100, verbose_name="ระดับชั้น", blank=True, null=True)
 
+    # 📌 ข้อมูลนักเรียนสำหรับห้องเรียน/แบบทดสอบ (ชื่อ-นามสกุล/ชั้น/เลขที่) กรอกครั้งเดียวตอนเข้าห้องเรียนครั้งแรก
+    # แล้วใช้ซ้ำได้ทุกแบบทดสอบ ไม่ต้องกรอกซ้ำทุกครั้งที่ทำข้อสอบ
+    full_name = models.CharField(max_length=200, blank=True, default="", verbose_name="ชื่อ-นามสกุล (สำหรับห้องเรียน)")
+    student_class = models.CharField(max_length=50, blank=True, default="", verbose_name="ชั้น (สำหรับห้องเรียน)")
+    student_number = models.CharField(max_length=10, blank=True, default="", verbose_name="เลขที่ (สำหรับห้องเรียน)")
+
     def __str__(self):
         return f"Profile of {self.user.username}"
+
+    @property
+    def has_student_info(self):
+        return bool(self.full_name and self.student_class and self.student_number)
 
 
 # 📌 3. Helper & Classroom Model
