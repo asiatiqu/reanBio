@@ -225,11 +225,13 @@ class LessonView(models.Model):
         ('lesson_3d', 'เปิดสื่อ 3D Interactive'),
         ('flashcard_bank', 'เล่นการ์ดคำศัพท์ (คลังกลาง)'),
         ('flashcard_deck', 'เปิดชุดการ์ดของฉัน'),
+        ('classroom_video', 'ดูคลิปวิดีโอห้องเรียน'),
     )
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='lesson_views', verbose_name="ผู้ใช้งาน")
     activity_type = models.CharField(max_length=20, choices=ACTIVITY_CHOICES, default='lesson', verbose_name="ประเภทกิจกรรม")
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='views', null=True, blank=True, verbose_name="บทเรียนที่เข้าชม")
     flashcard_deck = models.ForeignKey('FlashcardDeck', on_delete=models.SET_NULL, related_name='views', null=True, blank=True, verbose_name="ชุดการ์ดที่เข้าชม")
+    classroom_video = models.ForeignKey('ClassroomVideo', on_delete=models.SET_NULL, related_name='views', null=True, blank=True, verbose_name="วิดีโอห้องเรียนที่เข้าชม")
     label = models.CharField(max_length=200, blank=True, default="", verbose_name="รายละเอียดเพิ่มเติม (เช่น ตัวกรองที่ใช้ หรือชื่อชุดการ์ดสำรอง)")
     viewed_at = models.DateTimeField(auto_now_add=True, verbose_name="เข้าชมเมื่อ")
 

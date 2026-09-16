@@ -40,6 +40,7 @@ urlpatterns = [
     path('classrooms/', views.my_classroom_view, name='my_classrooms'),
     path('classrooms/join/', views.join_classroom_view, name='join_classroom'),
     path('classrooms/<str:code>/', views.classroom_detail_view, name='classroom_detail'),
+    path('classrooms/<str:code>/videos/<int:video_pk>/', views.classroom_video_watch_view, name='classroom_video_watch'),
     path('classrooms/<str:code>/videos/add/', views.classroom_add_video_view, name='classroom_add_video'),
     path('classrooms/<str:code>/files/add/', views.classroom_add_file_view, name='classroom_add_file'),
     path('classrooms/<str:code>/quizzes/add/', views.classroom_add_quiz_view, name='classroom_add_quiz'),

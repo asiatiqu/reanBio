@@ -457,6 +457,21 @@ def classroom_detail_view(request, code):
     })
 
 
+# 📌 หน้าแยกสำหรับดูคลิปวิดีโอในห้องเรียนทีละคลิป (กดเข้ามาจากหน้าห้องเรียน)
+# บันทึกการเข้าชมไว้แสดงในแท็บ "วิดีโอที่เรียน" ของหน้าโปรไฟล์
+@login_required
+def classroom_video_watch_view(request, code, video_pk):
+    classroom = get_object_or_404(Classroom, code=code)
+    video = get_object_or_404(ClassroomVideo, pk=video_pk, classroom=classroom)
+
+    LessonView.objects.create(user=request.user, activity_type='classroom_video', classroom_video=video, label=video.title)
+
+    return render(request, 'reanBio/classroom_video_watch.html', {
+        'classroom': classroom,
+        'video': video,
+    })
+
+
 # ============================================================
 # 📌 6. เครื่องมือจัดการห้องเรียนสำหรับคุณครู (คลิปวิดีโอ / ไฟล์เอกสาร / แบบทดสอบที่สร้างเอง)
 # ============================================================
@@ -764,6 +779,25 @@ def _build_recent_views(user):
     return items
 
 
+# 📌 สร้างรายการคลิปวิดีโอห้องเรียนที่นักเรียนเคยกดเข้าไปดู ไว้แสดงในแท็บ "วิดีโอที่เรียน" ของหน้าโปรไฟล์ (แยกจากแท็บ "เข้าชมล่าสุด")
+def _build_video_views(user):
+    rows = (
+        LessonView.objects
+        .filter(user=user, activity_type='classroom_video', classroom_video__isnull=False)
+        .select_related('classroom_video', 'classroom_video__classroom')[:20]
+    )
+    items = []
+    for v in rows:
+        video = v.classroom_video
+        items.append({
+            'title': video.title,
+            'classroom_name': video.classroom.name,
+            'url': reverse('classroom_video_watch', kwargs={'code': video.classroom.code, 'video_pk': video.pk}),
+            'viewed_at': v.viewed_at,
+        })
+    return items
+
+
 @login_required
 def profile(request):
     try:
@@ -783,6 +817,8 @@ def profile(request):
         'classrooms': classrooms,
         # 📌 แท็บ "เข้าชมล่าสุด": บทเรียน / การ์ดคำศัพท์ ที่เปิดดูล่าสุด (บันทึกไว้ตอนเข้าแต่ละหน้า)
         'recent_views': _build_recent_views(request.user),
+        # 📌 แท็บ "วิดีโอที่เรียน": คลิปวิดีโอห้องเรียนที่เคยกดเข้าไปดู
+        'video_views': _build_video_views(request.user),
     }
     # 📌 แท็บ "แดชบอร์ด" ในหน้าโปรไฟล์: สรุปคะแนนแบบฝึกหัด/ข้อสอบ (เฉพาะนักเรียน คุณครูมีแดชบอร์ดห้องเรียนแยกต่างหาก)
     if not is_teacher:
