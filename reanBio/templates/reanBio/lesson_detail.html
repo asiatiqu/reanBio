@@ -91,18 +91,6 @@
         </div>
         {% endif %}
 
-        {% if lesson.subtopic_code == '1.1' %}
-        <!-- สื่อ 3D Interactive (Three.js) แยกไปอยู่หน้าของตัวเองแล้ว ที่นี่แสดงแค่ปุ่มลิงก์ไป -->
-        <div class="pt-4">
-            <div class="p-6 bg-white border border-slate-100 rounded-3xl text-center space-y-3 flex flex-col items-center justify-center max-w-md mx-auto">
-                <p class="font-bold text-bio-dark text-sm">สื่อ 3D Interactive: ระดับการจัดระบบของสิ่งมีชีวิต</p>
-                <p class="text-xs text-slate-400">หมุนดู ซูม และกดสำรวจแบบจำลอง 3 มิติแบบเต็มหน้าจอ</p>
-                <a href="{% url 'lesson_3d' pk=lesson.pk %}" class="px-6 py-2.5 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-sm shadow transition whitespace-nowrap">
-                    เปิดสื่อ 3D Interactive
-                </a>
-            </div>
-        </div>
-        {% endif %}
 
         <!-- 📌 กล่อง "ถาม AI เกี่ยวกับบทเรียนนี้" -->
         <div class="pt-4">

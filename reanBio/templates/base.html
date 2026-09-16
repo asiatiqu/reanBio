@@ -534,8 +534,6 @@
         <a href="{% url 'lessons' %}" class="{% if request.resolver_match.url_name == 'lessons' %}active{% endif %}">บทเรียน</a>
       {% endif %}
 
-      <a href="{% url 'lesson_3d_hub' %}" class="{% if request.resolver_match.url_name == 'lesson_3d_hub' or request.resolver_match.url_name == 'lesson_3d' %}active{% endif %}">สื่อ 3D</a>
-
       {% if request.user.is_authenticated and not request.user.is_teacher %}
         <a href="{% url 'quiz_generator' %}" class="{% if request.resolver_match.url_name == 'quiz_generator' %}active{% endif %}">สร้างแบบทดสอบ</a>
       {% endif %}

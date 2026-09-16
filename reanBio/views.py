@@ -731,20 +731,12 @@ def classroom_quiz_export_view(request, quiz_pk):
 
 
 # 📌 แปลงแถวประวัติการเข้าชม (LessonView) ให้เป็น dict ที่มีหน้าตาเดียวกันสำหรับทุกประเภทกิจกรรม
-# เพื่อให้เทมเพลตแสดงผลบทเรียน / สื่อ 3D / การ์ดคำศัพท์ ในตารางเดียวกันได้ง่ายๆ
+# เพื่อให้เทมเพลตแสดงผลบทเรียน / การ์ดคำศัพท์ ในตารางเดียวกันได้ง่ายๆ
 def _build_recent_views(user):
     rows = LessonView.objects.filter(user=user).select_related('lesson', 'flashcard_deck')[:10]
     items = []
     for v in rows:
-        if v.activity_type == 'lesson_3d' and v.lesson:
-            items.append({
-                'icon': '🧊',
-                'title': f"สื่อ 3D: {v.lesson.title}",
-                'subtitle': f"{v.lesson.get_grade_display()} · หัวข้อ {v.lesson.subtopic_code}",
-                'url': reverse('lesson_3d', kwargs={'pk': v.lesson.pk}),
-                'viewed_at': v.viewed_at,
-            })
-        elif v.activity_type == 'flashcard_bank':
+        if v.activity_type == 'flashcard_bank':
             items.append({
                 'icon': '🗂️',
                 'title': 'การ์ดคำศัพท์ (คลังกลาง)',
@@ -789,7 +781,7 @@ def profile(request):
     context = {
         'profile': user_profile,
         'classrooms': classrooms,
-        # 📌 แท็บ "เข้าชมล่าสุด": บทเรียน / สื่อ 3D / การ์ดคำศัพท์ ที่เปิดดูล่าสุด (บันทึกไว้ตอนเข้าแต่ละหน้า)
+        # 📌 แท็บ "เข้าชมล่าสุด": บทเรียน / การ์ดคำศัพท์ ที่เปิดดูล่าสุด (บันทึกไว้ตอนเข้าแต่ละหน้า)
         'recent_views': _build_recent_views(request.user),
     }
     # 📌 แท็บ "แดชบอร์ด" ในหน้าโปรไฟล์: สรุปคะแนนแบบฝึกหัด/ข้อสอบ (เฉพาะนักเรียน คุณครูมีแดชบอร์ดห้องเรียนแยกต่างหาก)
@@ -839,29 +831,6 @@ def lesson_detail_view(request, pk):
         'ai_answer': ai_answer,
         'ai_error': ai_error,
     })
-
-
-# 📌 หัวข้อที่มีสื่อ 3D Interactive พร้อมใช้งานแล้ว (เพิ่มโค้ดในลิสต์นี้เมื่อทำสื่อ 3D ของหัวข้ออื่นเสร็จ)
-LESSON_3D_SUBTOPIC_CODES = ['1.1']
-
-
-def lesson_3d_view(request, pk):
-    """หน้าแยกสำหรับสื่อ 3D Interactive ของบทเรียน (แยกออกมาจากหน้าบทเรียนหลักเพื่อให้มีพื้นที่แสดงผลเต็มที่)"""
-    lesson = get_object_or_404(Lesson, pk=pk)
-    if lesson.subtopic_code not in LESSON_3D_SUBTOPIC_CODES:
-        raise Http404("บทเรียนนี้ยังไม่มีสื่อ 3D Interactive")
-
-    # 📌 บันทึกการเข้าชมสื่อ 3D นี้ ไว้แสดงประวัติในแท็บ "เข้าชมล่าสุด" ของหน้าโปรไฟล์
-    if request.user.is_authenticated:
-        LessonView.objects.create(user=request.user, activity_type='lesson_3d', lesson=lesson)
-
-    return render(request, 'reanBio/lesson_3d.html', {'lesson': lesson})
-
-
-def lesson_3d_hub_view(request):
-    """หน้ารวมสื่อ 3D Interactive ทั้งหมด เข้าถึงได้จากเมนูด้านข้างโดยตรง ไม่ต้องผ่านหน้าบทเรียน"""
-    lessons_with_3d = Lesson.objects.filter(subtopic_code__in=LESSON_3D_SUBTOPIC_CODES)
-    return render(request, 'reanBio/lesson_3d_hub.html', {'lessons_with_3d': lessons_with_3d})
 
 
 # ============================================================
