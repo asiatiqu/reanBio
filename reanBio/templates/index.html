@@ -6,20 +6,20 @@
 <!-- ส่วนแบนเนอร์ด้านบน -->
 <div class="hero-container">
   <div class="hero-text">
-    <div class="badge">แพลตฟอร์มเรียนชีวะยุคใหม่ สำหรับเด็กม.ปลาย & มหาลัย</div>
-    <h1>เรียนชีววิทยาออนไลน์<br>สนุก เข้าใจง่าย ไม่น่าเบื่อ</h1>
-    <p>ออกแบบบทเรียนตามเป้าหมาย มีทั้ง 3D Anatomy, แฟลชการ์ดท่องจำคำศัพท์ และควิซทดสอบความรู้
+    <div class="badge">แพลตฟอร์มเรียนภาษาอังกฤษยุคใหม่ สำหรับเด็กม.ปลาย & มหาลัย</div>
+    <h1>เรียนภาษาอังกฤษออนไลน์<br>สนุก เข้าใจง่าย ไม่น่าเบื่อ</h1>
+    <p>ออกแบบบทเรียนตามเป้าหมาย มีทั้งบทเรียนไวยากรณ์, แฟลชการ์ดท่องจำคำศัพท์ และควิซทดสอบความรู้
       พร้อมช่วยให้คุณเก่งขึ้นได้จริง</p>
 
     {% if not request.user.is_authenticated %}
-    <a href="{% url 'signup' %}" class="btn-primary">เริ่มต้นเรียนชีววิทยาฟรี</a>
+    <a href="{% url 'signup' %}" class="btn-primary">เริ่มต้นเรียนภาษาอังกฤษฟรี</a>
     {% endif %}
   </div>
 
   <div class="hero-image">
-    <!-- เปลี่ยนลิงก์รูปตรง src="" ให้เป็นรูปเซลล์ที่คุณมีได้เลยครับ -->
-    <img src="https://images.unsplash.com/photo-1576086213369-97a306d36557?q=80&w=800&auto=format&fit=crop"
-      alt="Biology Cell">
+    <!-- เปลี่ยนลิงก์รูปตรง src="" ให้เป็นรูปที่คุณมีได้เลยครับ -->
+    <img src="https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=800&auto=format&fit=crop"
+      alt="English books">
   </div>
 </div>
 
@@ -27,7 +27,7 @@
 <div class="features-grid">
   <a href="{% url 'flashcards' %}" class="feature-card">
     <h3>Interactive Flashcards</h3>
-    <p>ท่องจำศัพท์ชีวะแบบสมาร์ทการ์ด</p>
+    <p>ท่องจำศัพท์ภาษาอังกฤษแบบสมาร์ทการ์ด</p>
   </a>
   <a href="{% url 'quiz_generator' %}" class="feature-card">
     <h3>AI Quiz Generator</h3>

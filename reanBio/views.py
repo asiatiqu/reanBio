@@ -24,7 +24,7 @@ from .models import (
     ClassroomQuizAttempt, ClassroomQuizAnswer, FlashcardDeck, Flashcard, AIFeedback,
 )
 from .forms import UserSignUpForm, EmailOrUsernameAuthenticationForm
-from .ai_helper import ask_biology_ai, AskAIError
+from .ai_helper import ask_english_ai, AskAIError
 
 
 # 📌 ช่วยเน้นคำค้นหาในเนื้อหา และตัดข้อความให้เหลือแค่ช่วงที่เจอคำ (snippet)
@@ -107,7 +107,7 @@ def home(request):
     return render(request, 'index.html')
 
 
-# 📌 หน้า "ถาม AI" แยกต่างหาก: ถามคำถามชีววิทยาทั่วไป (ไม่ผูกกับบทเรียนใดบทเรียนหนึ่ง)
+# 📌 หน้า "ถาม AI" แยกต่างหาก: ถามคำถามภาษาอังกฤษทั่วไป (ไม่ผูกกับบทเรียนใดบทเรียนหนึ่ง)
 # ใช้ได้ทั้งนักเรียนและคุณครู
 @login_required
 def ask_ai_view(request):
@@ -117,7 +117,7 @@ def ask_ai_view(request):
     if request.method == 'POST':
         ai_question = request.POST.get('ai_question', '').strip()
         try:
-            ai_answer = ask_biology_ai(ai_question)
+            ai_answer = ask_english_ai(ai_question)
         except AskAIError as exc:
             ai_error = str(exc)
 
@@ -260,7 +260,8 @@ def lessons_view(request):
     grade_filter = request.GET.get('grade', 'all')
     search_query = request.GET.get('q', '').strip()
 
-    lessons = Lesson.objects.all()
+    # 📌 แสดงเฉพาะบทเรียนวิชาภาษาอังกฤษ (วิชาที่แอปกำลังโฟกัสอยู่ตอนนี้) บทเรียนชีววิทยาเดิมยังเก็บไว้ในฐานข้อมูล แค่ไม่แสดงในรายการนี้
+    lessons = Lesson.objects.filter(subject='english')
 
     if grade_filter in ['m4', 'm5', 'm6']:
         lessons = lessons.filter(grade=grade_filter)
@@ -306,9 +307,10 @@ def lessons_view(request):
 
 
 def _chapters_by_grade():
-    """คืนค่า dict {grade: [เลขบทที่ทั้งหมดของ grade นั้น]} ใช้ในฟอร์มกรอง/สร้างแบบทดสอบ"""
+    """คืนค่า dict {grade: [เลขบทที่ทั้งหมดของ grade นั้น]} ใช้ในฟอร์มกรอง/สร้างแบบทดสอบ (เฉพาะวิชาภาษาอังกฤษ)"""
     mapping = {}
-    for grade, chapter in Lesson.objects.values_list('grade', 'chapter').distinct().order_by('grade', 'chapter'):
+    chapters_qs = Lesson.objects.filter(subject='english').values_list('grade', 'chapter').distinct().order_by('grade', 'chapter')
+    for grade, chapter in chapters_qs:
         mapping.setdefault(grade, []).append(chapter)
     return mapping
 
@@ -322,7 +324,7 @@ def flashcards_view(request):
     grade_filter = request.GET.get('grade', 'all')
     chapter_filter = request.GET.get('chapter', '').strip()
 
-    questions = Question.objects.select_related('lesson').prefetch_related('choices')
+    questions = Question.objects.select_related('lesson').prefetch_related('choices').filter(lesson__subject='english')
     if grade_filter in ['m4', 'm5', 'm6']:
         questions = questions.filter(lesson__grade=grade_filter)
     if chapter_filter.isdigit():
@@ -854,7 +856,7 @@ def lesson_detail_view(request, pk):
     if request.method == 'POST' and request.user.is_authenticated:
         ai_question = request.POST.get('ai_question', '').strip()
         try:
-            ai_answer = ask_biology_ai(ai_question, lesson=lesson)
+            ai_answer = ask_english_ai(ai_question, lesson=lesson)
         except AskAIError as exc:
             ai_error = str(exc)
 
@@ -980,7 +982,7 @@ def start_lesson_exam(request, pk):
 def _create_multi_lesson_exam_attempt(user, grade, chapter, num_questions):
     """สุ่มคำถามข้ามบทเรียนตามเงื่อนไขระดับชั้น/บทที่ที่เลือก แล้วสร้าง Attempt แบบข้อสอบรวม
     (ไม่ผูกกับบทเรียนเดียว lesson=None) คืนค่า Attempt หรือ None ถ้าไม่พบคำถามในขอบเขตที่เลือก"""
-    pool = Question.objects.select_related('lesson')
+    pool = Question.objects.select_related('lesson').filter(lesson__subject='english')
     if grade in ['m4', 'm5', 'm6']:
         pool = pool.filter(lesson__grade=grade)
     if chapter:
@@ -1007,7 +1009,7 @@ def quiz_generator_view(request):
     """หน้าตั้งค่าสร้างแบบทดสอบอัตโนมัติ: เลือกระดับชั้น/บทที่/จำนวนข้อ แล้วสุ่มคำถามข้ามบทเรียนให้ทันที"""
     return render(request, 'reanBio/quiz_generator.html', {
         'chapters_by_grade_json': json.dumps(_chapters_by_grade()),
-        'total_questions': Question.objects.count(),
+        'total_questions': Question.objects.filter(lesson__subject='english').count(),
     })
 
 

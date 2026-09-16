@@ -83,8 +83,15 @@ class Lesson(models.Model):
         ('m5', 'ม.5'),
         ('m6', 'ม.6'),
     )
+    # 📌 รายวิชา: เดิมแอปนี้ทำแค่ชีววิทยา ตอนนี้ปรับให้รองรับหลายวิชาได้ โดยตั้งค่าเริ่มต้นเป็น 'bio'
+    # เพื่อไม่ให้กระทบบทเรียนชีววิทยาเดิมที่มีอยู่แล้ว วิชาใหม่ที่กำลังโฟกัสอยู่ตอนนี้คือภาษาอังกฤษ
+    SUBJECT_CHOICES = (
+        ('bio', 'ชีววิทยา'),
+        ('english', 'ภาษาอังกฤษ'),
+    )
 
     title = models.CharField(max_length=200, verbose_name="ชื่อบทเรียน")
+    subject = models.CharField(max_length=10, choices=SUBJECT_CHOICES, default='bio', verbose_name="รายวิชา")
     grade = models.CharField(max_length=2, choices=GRADE_CHOICES, verbose_name="ระดับชั้น")
     icon = models.CharField(max_length=10, default="🧬", verbose_name="อีโมจิประจำบท")
     description = models.TextField(verbose_name="คำอธิบายย่อย")
