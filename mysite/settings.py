@@ -148,7 +148,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://*.ngrok.io',
 ]
 
-# 📌 ฟีเจอร์ "ถาม AI" (ตอบคำถามวิชาภาษาอังกฤษ): ต้องสมัคร API key จาก https://console.anthropic.com เอง
+# 📌 ฟีเจอร์ "ถาม AI" (ตอบคำถามวิชาชีววิทยา): ต้องสมัคร API key จาก https://console.anthropic.com เอง
 # แล้วใส่ค่าไว้ในไฟล์ .env (ห้ามใส่ค่าตรงนี้ในโค้ด เพราะจะหลุดขึ้น GitHub ได้)
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 # ชื่อโมเดลตรวจสอบล่าสุดได้ที่ https://docs.claude.com/en/docs/about-claude/models
