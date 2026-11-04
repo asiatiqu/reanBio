@@ -1,23 +1,24 @@
 {% extends 'base.html' %}
 
-{% block title %}หน้าแรก - reanBio{% endblock %}
+{% block title %}หน้าแรก - reanBio (Mockup){% endblock %}
 
 {% block content %}
 <!-- ส่วนแบนเนอร์ด้านบน -->
 <div class="hero-container">
   <div class="hero-text">
-    <div class="badge">แพลตฟอร์มเรียนชีวะยุคใหม่ สำหรับเด็กม.ปลาย & มหาลัย</div>
+    <div class="badge">✨ แพลตฟอร์มเรียนชีวะยุคใหม่ (Interactive Mockup · ไม่ต้องสมัครสมาชิกจริง)</div>
     <h1>เรียนชีววิทยาออนไลน์<br>สนุก เข้าใจง่าย ไม่น่าเบื่อ</h1>
-    <p>ออกแบบบทเรียนตามเป้าหมาย มีทั้งบทเรียน, แฟลชการ์ดท่องจำคำศัพท์ และควิซทดสอบความรู้
-      พร้อมช่วยให้คุณเก่งขึ้นได้จริง</p>
+    <p>ออกแบบบทเรียนตามเป้าหมาย มีทั้งบทเรียนชีววิทยา, ติวเตอร์ AI ชีววิทยาอัจฉริยะ, แฟลชการ์ดท่องจำคำศัพท์ และควิซทดสอบความรู้ กดปุ่มเลือกดูฟีเจอร์ได้ทันที</p>
 
-    {% if not request.user.is_authenticated %}
-    <a href="{% url 'signup' %}" class="btn-primary">เริ่มต้นเรียนชีววิทยาฟรี</a>
-    {% endif %}
+    <div class="flex flex-wrap items-center gap-3">
+      <a href="{% url 'lessons' %}" class="btn-primary">📘 เข้าดูคลังบทเรียนชีววิทยา</a>
+      <a href="{% url 'ask_ai' %}" class="px-7 py-3.5 bg-white hover:bg-bio-light text-bio-dark font-bold rounded-full border-2 border-bio-main shadow-sm transition no-underline">
+        🤖 ถามติวเตอร์ AI ชีววิทยา
+      </a>
+    </div>
   </div>
 
   <div class="hero-image">
-    <!-- เปลี่ยนลิงก์รูปตรง src="" ให้เป็นรูปเซลล์ที่คุณมีได้เลยครับ -->
     <img src="https://images.unsplash.com/photo-1576086213369-97a306d36557?q=80&w=800&auto=format&fit=crop"
       alt="Biology Cell">
   </div>
@@ -25,16 +26,20 @@
 
 <!-- ส่วนการ์ดฟีเจอร์ด้านล่าง -->
 <div class="features-grid">
+  <a href="{% url 'ask_ai' %}" class="feature-card">
+    <h3>🧬 Smart Biology AI Tutor</h3>
+    <p>แชทบอทติวเตอร์ชีววิทยาอัจฉริยะ จำบทสนทนาต่อเนื่อง</p>
+  </a>
   <a href="{% url 'flashcards' %}" class="feature-card">
-    <h3>Interactive Flashcards</h3>
+    <h3>🗂️ Interactive Flashcards</h3>
     <p>ท่องจำศัพท์ชีวะแบบสมาร์ทการ์ด</p>
   </a>
   <a href="{% url 'quiz_generator' %}" class="feature-card">
-    <h3>AI Quiz Generator</h3>
+    <h3>📝 AI Quiz Generator</h3>
     <p>ทดสอบความรู้ด้วยควิซอัจฉริยะ</p>
   </a>
   <a href="{% url 'profile' %}?tab=dashboard" class="feature-card">
-    <h3>Track Your Progress</h3>
+    <h3>📊 Track Your Progress</h3>
     <p>ติดตามพัฒนาการเรียนรู้ได้ทุกวัน</p>
   </a>
 </div>

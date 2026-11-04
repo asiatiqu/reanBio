@@ -1,38 +1,30 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}ห้องเรียนของฉัน - reanBio{% endblock %}
+{% block title %}ห้องเรียนของฉัน (Mockup) - reanBio{% endblock %}
 
 {% block content %}
 <div class="w-full max-w-6xl flex flex-col gap-6">
 
-    <!-- แจ้งเตือนสถานะ -->
-    {% if messages %}
-    {% for message in messages %}
-    <div class="p-4 rounded-2xl text-sm font-bold text-center {% if message.tags == 'error' %}bg-rose-100 text-rose-700{% else %}bg-emerald-100 text-emerald-800{% endif %}">
-        {{ message }}
-    </div>
-    {% endfor %}
-    {% endif %}
-
-    <!-- ส่วนกรอกรหัสห้องเรียน -->
+    <!-- ส่วนหัวและปุ่มเข้าร่วมห้องเรียน Mockup -->
     <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
             <h1 class="text-2xl md:text-3xl font-bold text-bio-dark flex items-center gap-2">
-                ห้องเรียนของฉัน
+                ห้องเรียนของฉัน (Mockup)
             </h1>
-            <p class="text-xs md:text-sm text-slate-500 mt-1">กรอกรหัส 6 หลักจากคุณครูเพื่อเข้าร่วมห้องเรียน</p>
+            <p class="text-xs md:text-sm text-slate-500 mt-1">กดปุ่มเข้าดูห้องเรียนจำลอง หรือกดปุ่มจำลองการเข้าร่วมห้องเรียนด้วยรหัสได้เลย</p>
         </div>
 
-        <form action="{% url 'join_classroom' %}" method="post" class="flex gap-3 w-full md:w-auto">
-            {% csrf_token %}
-            <input type="text" name="code" placeholder="กรอกรหัส 6 หลัก (เช่น ABC123)" required maxlength="6"
-                class="px-5 py-3 bg-bio-light/50 border border-bio-light rounded-2xl text-sm font-bold tracking-widest text-center uppercase focus:outline-none focus:ring-2 focus:ring-bio-main w-full md:w-64">
-            <button type="submit"
-                class="px-6 py-3 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl shadow-md transition whitespace-nowrap">
-                เข้าร่วมห้องเรียน
+        <div class="flex flex-wrap gap-3">
+            <button type="button" onclick="reanBioToast('✅ จำลองการเข้าร่วมห้องเรียนรหัส BIO101 สำเร็จ!')"
+                class="px-6 py-3 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl shadow-md transition whitespace-nowrap text-sm">
+                + จำลองเข้าร่วมห้องเรียน (รหัส BIO101)
             </button>
-        </form>
+            <a href="?mock_role=teacher"
+                class="px-5 py-3 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl transition whitespace-nowrap text-sm no-underline">
+                👩‍🏫 สลับดูแดชบอร์ดคุณครู
+            </a>
+        </div>
     </div>
 
     <!-- รายการห้องเรียนที่เรียนอยู่ -->
@@ -54,11 +46,6 @@
                     เข้าสู่ห้องเรียน
                 </a>
             </div>
-        </div>
-        {% empty %}
-        <div class="col-span-full py-16 text-center text-slate-400 border-2 border-dashed border-slate-300 rounded-[30px] bg-white/40">
-            <p class="font-semibold text-slate-700 mt-2">ยังไม่ได้เข้าร่วมห้องเรียนใดๆ</p>
-            <p class="text-xs text-slate-400">กรอกรหัส 6 หลักที่คุณครูให้ในช่องด้านบนเพื่อเริ่มต้นเข้าเรียน</p>
         </div>
         {% endfor %}
     </div>

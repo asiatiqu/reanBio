@@ -1,44 +1,312 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}ถาม AI - reanBio{% endblock %}
+{% block title %}ติวเตอร์ AI ชีววิทยา - reanBio{% endblock %}
 
 {% block content %}
-<div class="w-full max-w-3xl flex flex-col gap-6">
+<div class="w-full max-w-6xl flex flex-col gap-6">
 
-    <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-8">
-        <h1 class="text-2xl md:text-3xl font-bold text-bio-dark">🤖 ถาม AI</h1>
-        <p class="text-xs text-slate-500 mt-1">ถามคำถามเกี่ยวกับวิชาชีววิทยาได้เลย AI จะช่วยตอบและอธิบายให้เข้าใจง่ายๆ</p>
+    <!-- ส่วนหัว: ติวเตอร์ AI ชีววิทยาอัจฉริยะ -->
+    <div class="bg-gradient-to-r from-bio-main to-bio-dark text-white rounded-[30px] shadow-lg p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div class="space-y-1.5">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="bg-white/20 backdrop-blur-md px-3.5 py-1 rounded-full text-xs font-bold">
+                    🧬 Smart Biology AI Tutor
+                </span>
+                <span class="bg-white/15 backdrop-blur-md px-3.5 py-1 rounded-full text-xs font-semibold">
+                    📚 เชื่อมต่อ {{ bio_lessons|length }} บทเรียนชีววิทยา {% if kb_doc_count %}+ {{ kb_doc_count }} เอกสาร PDF{% endif %}
+                </span>
+            </div>
+            <h1 class="text-2xl md:text-3xl font-extrabold flex items-center gap-2 mt-1">
+                🤖 แชทบอทติวเตอร์ชีววิทยาอัจฉริยะ
+            </h1>
+            <p class="text-xs md:text-sm text-white/90">
+                ถาม-ตอบความรู้ชีววิทยาแบบจำบทสนทนาต่อเนื่อง เลือกโหมดการติวได้ตามต้องการ พร้อมอ้างอิงเนื้อหาจากบทเรียนและหนังสือเรียนชัดเจน
+            </p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            <a href="{% url 'ask_ai_new' %}"
+                class="px-5 py-2.5 bg-white text-bio-dark hover:bg-bio-light font-bold rounded-2xl text-xs md:text-sm shadow transition whitespace-nowrap">
+                + เริ่มหัวข้อสนทนาใหม่
+            </a>
+        </div>
     </div>
 
-    <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-8 space-y-5">
-        <form method="post">
-            {% csrf_token %}
-            <div class="space-y-3">
-                <label class="block text-sm font-bold text-bio-dark">คำถามของคุณ</label>
-                <textarea name="ai_question" rows="3" required maxlength="800"
-                    placeholder="เช่น เซลล์พืชกับเซลล์สัตว์ต่างกันยังไง?"
-                    class="w-full px-4 py-3 bg-bio-light/40 border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition">{{ ai_question }}</textarea>
-                <button type="submit" class="px-8 py-3 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-sm shadow transition">
-                    ส่งคำถาม
-                </button>
+    <!-- โครงสร้างหลัก: แถบประวัติการสนทนา (ซ้าย) + ห้องแชทติวเตอร์ชีววิทยา (ขวา) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- คอลัมน์ซ้าย: ประวัติหัวข้อสนทนาชีววิทยา -->
+        <aside class="lg:col-span-4 bg-white/95 backdrop-blur-md rounded-[28px] border border-white shadow-lg p-5 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h2 class="text-sm font-bold text-bio-dark flex items-center gap-2">
+                    💬 ประวัติการสนทนาชีววิทยา
+                </h2>
+                <span class="text-xs text-slate-400 font-semibold">{{ sessions|length }} หัวข้อ</span>
             </div>
-        </form>
 
-        {% if ai_error %}
-        <div class="px-4 py-3 rounded-2xl text-sm font-semibold bg-red-50 text-red-600 border border-red-100">
-            ⚠️ {{ ai_error }}
-        </div>
-        {% endif %}
+            {% if sessions %}
+            <div class="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+                {% for sess in sessions %}
+                <div class="group flex items-center justify-between gap-2 p-3 rounded-2xl border transition {% if current_session and current_session.pk == sess.pk %}bg-bio-light/80 border-bio-main/40{% else %}bg-slate-50/70 border-slate-100 hover:bg-bio-light/30{% endif %}">
+                    <a href="{% url 'ask_ai_session' session_pk=sess.pk %}" class="flex-1 min-w-0 no-underline">
+                        <p class="text-xs md:text-sm font-bold text-slate-800 truncate">
+                            {{ sess.title }}
+                        </p>
+                        <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                            <span class="text-[11px] px-2 py-0.5 rounded-full bg-white text-bio-dark font-semibold border border-bio-light">
+                                {{ sess.get_tutor_mode_display }}
+                            </span>
+                            {% if sess.lesson %}
+                            <span class="text-[11px] text-slate-500 truncate max-w-[150px]">
+                                📘 {{ sess.lesson.title }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </a>
+                    <form method="post" action="{% url 'ask_ai_delete_session' session_pk=sess.pk %}"
+                        onsubmit="return confirm('ต้องการลบประวัติการสนทนาหัวข้อนี้ใช่หรือไม่?');">
+                        {% csrf_token %}
+                        <button type="submit" title="ลบหัวข้อสนทนานี้"
+                            class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition text-xs">
+                            🗑️
+                        </button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="p-6 text-center bg-bio-light/30 rounded-2xl border border-dashed border-bio-main/20 space-y-2">
+                <p class="text-xs font-bold text-bio-dark">ยังไม่มีประวัติการสนทนา</p>
+                <p class="text-xs text-slate-500">เลือกโหมดการติวและพิมพ์คำถามชีววิทยาด้านขวาเพื่อเริ่มคุยกับ AI ได้เลย!</p>
+            </div>
+            {% endif %}
 
-        {% if ai_answer %}
-        <div class="p-6 bg-bio-light/50 rounded-2xl text-slate-700 leading-relaxed text-sm md:text-base whitespace-pre-line">
-            <p class="font-bold text-bio-dark text-xs mb-2">🤖 คำตอบจาก AI</p>
-            {{ ai_answer }}
-        </div>
-        {% include 'reanBio/_ai_feedback_widget.html' with feedback_widget_id="page" feedback_lesson_id="" %}
-        {% endif %}
+            <!-- กล่องแนะนำความสามารถของติวเตอร์ชีววิทยา -->
+            <div class="p-4 bg-bio-light/40 rounded-2xl border border-bio-light space-y-2 text-xs text-slate-600">
+                <p class="font-bold text-bio-dark">💡 เคล็ดลับการใช้งานติวเตอร์ชีววิทยา</p>
+                <ul class="space-y-1 list-disc list-inside text-[11px] leading-relaxed">
+                    <li><strong>ถามต่อเนื่องได้:</strong> เช่น ถามเรื่อง <em>"ไมโทซิส"</em> แล้วพิมพ์ถามต่อว่า <em>"แล้วต่างจากไมโอซิสยังไง?"</em> ระบบจะจำบริบทเดิมให้อัตโนมัติ</li>
+                    <li><strong>สลับโหมดการสอนได้:</strong> เลือกให้ AI สรุปสูตรจำ หรือเก็งจุดหลอกข้อสอบ ม.ปลาย ได้ทันที</li>
+                    <li><strong>มีแหล่งอ้างอิง (RAG):</strong> กดลิงก์บทเรียนใต้คำตอบเพื่อเปิดอ่านเนื้อหาเต็มต่อได้ทันที</li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- คอลัมน์ขวา: พื้นที่แชทและฟอร์มตั้งค่าติวเตอร์ชีววิทยา -->
+        <section class="lg:col-span-8 bg-white/95 backdrop-blur-md rounded-[28px] border border-white shadow-lg p-5 md:p-7 flex flex-col gap-5">
+
+            <!-- แถบแสดงหัวข้อปัจจุบัน -->
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div>
+                    <h2 class="text-base md:text-lg font-bold text-bio-dark">
+                        {% if current_session %}
+                            💬 {{ current_session.title }}
+                        {% else %}
+                            ✨ เริ่มบทสนทนาติวเตอร์ชีววิทยาใหม่
+                        {% endif %}
+                    </h2>
+                    <p class="text-xs text-slate-500">
+                        {% if selected_lesson %}
+                            กำลังโฟกัสบทเรียน: <strong>{{ selected_lesson.title }} ({{ selected_lesson.get_grade_display }})</strong>
+                        {% else %}
+                            กำลังค้นหาจาก: <strong>คลังความรู้ชีววิทยาทั้งหมด (บทเรียน ม.4–ม.6 + เอกสาร PDF + หลักสูตร สสวท.)</strong>
+                        {% endif %}
+                    </p>
+                </div>
+                {% if current_session %}
+                <span class="text-xs px-3 py-1 rounded-full bg-bio-light text-bio-dark font-bold">
+                    {{ chat_messages|length }} ข้อความในหัวข้อนี้
+                </span>
+                {% endif %}
+            </div>
+
+            <!-- พื้นที่แสดงข้อความสนทนา (Multi-turn Chat History) -->
+            <div id="bio-chat-scroll" class="space-y-4 max-h-[540px] overflow-y-auto pr-1">
+                {% if chat_messages %}
+                    {% for msg in chat_messages %}
+                        {% if msg.role == 'user' %}
+                        <!-- ข้อความคำถามของผู้เรียน -->
+                        <div class="flex justify-end">
+                            <div class="max-w-[85%] bg-bio-main text-white px-5 py-3.5 rounded-3xl rounded-br-md shadow-sm space-y-1">
+                                <p class="text-[11px] font-bold text-white/80">🧑‍🎓 คำถามของคุณ</p>
+                                <div class="text-sm md:text-base whitespace-pre-line leading-relaxed">{{ msg.content }}</div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <!-- ข้อความคำตอบของติวเตอร์ AI ชีววิทยา + แหล่งอ้างอิง RAG -->
+                        <div class="flex justify-start">
+                            <div class="w-full max-w-[95%] bg-bio-light/50 border border-bio-light px-5 py-4 rounded-3xl rounded-bl-md space-y-3">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <p class="font-bold text-bio-dark text-xs flex items-center gap-1.5">
+                                        🧬 คำตอบจากติวเตอร์ AI ชีววิทยา
+                                    </p>
+                                    <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-white text-slate-500 border border-slate-200 font-semibold">
+                                        {% if msg.engine == 'claude' %}Claude AI + Bio RAG{% else %}คลังความรู้ชีววิทยา RAG{% endif %}
+                                    </span>
+                                </div>
+
+                                <div class="text-slate-700 leading-relaxed text-sm md:text-base whitespace-pre-line">{{ msg.content }}</div>
+
+                                {% if msg.sources %}
+                                <!-- การ์ดแสดงแหล่งอ้างอิงความรู้ชีววิทยา (Citations) -->
+                                <div class="pt-3 border-t border-bio-main/15 space-y-2">
+                                    <p class="text-xs font-bold text-bio-dark flex items-center gap-1.5">
+                                        📚 แหล่งอ้างอิงความรู้ชีววิทยาที่ใช้ประกอบการตอบ ({{ msg.sources|length }} รายการ):
+                                    </p>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                        {% for src in msg.sources %}
+                                        <div class="p-3 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between gap-2">
+                                            <div class="space-y-1">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-bio-light text-bio-dark">
+                                                        {{ src.badge }}
+                                                    </span>
+                                                    {% if src.score_percent %}
+                                                    <span class="text-[10px] text-slate-400 font-semibold">
+                                                        ตรง {{ src.score_percent }}%
+                                                    </span>
+                                                    {% endif %}
+                                                </div>
+                                                <p class="text-xs font-bold text-slate-800">{{ src.title }}</p>
+                                                <p class="text-[11px] text-slate-500 line-clamp-2">{{ src.snippet }}</p>
+                                            </div>
+                                            {% if src.type == 'lesson' and src.id %}
+                                            <div class="pt-1">
+                                                <a href="{% url 'lesson_detail' pk=src.id %}"
+                                                    class="inline-flex items-center gap-1 text-[11px] font-bold text-bio-main hover:text-bio-dark hover:underline">
+                                                    เปิดอ่านบทเรียนนี้เต็มๆ →
+                                                </a>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {% if forloop.last and ai_answer %}
+                                    {% with ai_question=last_question %}
+                                        {% include 'reanBio/_ai_feedback_widget.html' with feedback_widget_id="page" feedback_lesson_id=selected_lesson.pk|default:"" %}
+                                    {% endwith %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <!-- หน้าต้อนรับเมื่อเริ่มบทสนทนาใหม่ + ปุ่มคำถามชีววิทยาแนะนำ -->
+                    <div class="p-6 bg-bio-light/35 rounded-3xl border border-dashed border-bio-main/30 space-y-4">
+                        <div class="space-y-1">
+                            <p class="text-sm font-bold text-bio-dark">👋 สวัสดีครับ! เลือกหัวข้อชีววิทยาที่อยากให้ช่วยติวได้เลย</p>
+                            <p class="text-xs text-slate-600">
+                                กดที่ตัวอย่างคำถามด้านล่างเพื่อเริ่มถามทันที หรือพิมพ์คำถามของคุณเองในช่องด้านล่าง
+                            </p>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <button type="button" onclick="fillBioPrompt('เซลล์พืชกับเซลล์สัตว์ต่างกันอย่างไร และมีออร์แกเนลล์ใดที่พบเฉพาะในเซลล์พืช?')"
+                                class="text-left p-3.5 bg-white hover:bg-bio-light/60 rounded-2xl border border-slate-100 shadow-sm transition group">
+                                <p class="text-xs font-bold text-bio-dark group-hover:text-bio-main">🌿 เซลล์พืช vs เซลล์สัตว์</p>
+                                <p class="text-[11px] text-slate-500 mt-0.5">เปรียบเทียบโครงสร้างและออร์แกเนลล์สำคัญ</p>
+                            </button>
+                            <button type="button" onclick="fillBioPrompt('เปรียบเทียบการแบ่งเซลล์แบบไมโทซิส (Mitosis) กับไมโอซิส (Meiosis) จุดไหนที่ข้อสอบชอบออกบ่อย?')"
+                                class="text-left p-3.5 bg-white hover:bg-bio-light/60 rounded-2xl border border-slate-100 shadow-sm transition group">
+                                <p class="text-xs font-bold text-bio-dark group-hover:text-bio-main">🧬 ไมโทซิส vs ไมโอซิส</p>
+                                <p class="text-[11px] text-slate-500 mt-0.5">สรุปความต่าง จำนวนโครโมโซม และจุดเน้นข้อสอบ</p>
+                            </button>
+                            <button type="button" onclick="fillBioPrompt('ออสโมซิส (Osmosis) คืออะไร ถ้าแช่เซลล์พืชและเซลล์เม็ดเลือดแดงในสารละลายไฮโพโทนิกจะเกิดผลต่างกันอย่างไร?')"
+                                class="text-left p-3.5 bg-white hover:bg-bio-light/60 rounded-2xl border border-slate-100 shadow-sm transition group">
+                                <p class="text-xs font-bold text-bio-dark group-hover:text-bio-main">💧 การลำเลียงสาร & ออสโมซิส</p>
+                                <p class="text-[11px] text-slate-500 mt-0.5">วิเคราะห์ผลของสารละลายไฮโพโทนิก/ไฮเพอร์โทนิก</p>
+                            </button>
+                            <button type="button" onclick="fillBioPrompt('สรุปขั้นตอนการหายใจระดับเซลล์ (Cellular Respiration) ทั้ง 4 ขั้นตอน พร้อมสถานที่เกิดปฏิกิริยาและพลังงาน ATP ที่ได้')"
+                                class="text-left p-3.5 bg-white hover:bg-bio-light/60 rounded-2xl border border-slate-100 shadow-sm transition group">
+                                <p class="text-xs font-bold text-bio-dark group-hover:text-bio-main">⚡ การหายใจระดับเซลล์ & ATP</p>
+                                <p class="text-[11px] text-slate-500 mt-0.5">ไกลโคไลซิส วัฏจักรเครบส์ และการถ่ายทอดอิเล็กตรอน</p>
+                            </button>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if ai_error %}
+            <div class="px-4 py-3 rounded-2xl text-sm font-semibold bg-red-50 text-red-600 border border-red-100">
+                ⚠️ {{ ai_error }}
+            </div>
+            {% endif %}
+
+            <!-- ฟอร์มตั้งค่าโหมดติวเตอร์ + ส่งคำถามชีววิทยา -->
+            <form method="post" id="bio-tutor-form" class="space-y-4 pt-2 border-t border-slate-100">
+                {% csrf_token %}
+                {% if current_session %}
+                <input type="hidden" name="session_id" value="{{ current_session.pk }}">
+                {% endif %}
+
+                <!-- แถบเลือกโหมดการติว และบทเรียนชีววิทยาที่ต้องการโฟกัส -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-bio-dark mb-1">🎯 โหมดติวเตอร์ชีววิทยา</label>
+                        <select name="tutor_mode"
+                            class="w-full px-3.5 py-2.5 bg-bio-light/40 border border-bio-light rounded-2xl text-xs md:text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-bio-main">
+                            {% for mode_key, mode_label in tutor_modes %}
+                            <option value="{{ mode_key }}" {% if selected_mode == mode_key %}selected{% endif %}>
+                                {{ mode_label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-bio-dark mb-1">📘 ขอบเขตบทเรียนชีววิทยา (RAG Context)</label>
+                        <select name="lesson_id"
+                            class="w-full px-3.5 py-2.5 bg-bio-light/40 border border-bio-light rounded-2xl text-xs md:text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-bio-main">
+                            <option value="">🌐 คลังความรู้ชีววิทยาทั้งหมด (บทเรียน ม.4–6 + PDF)</option>
+                            {% for b_lesson in bio_lessons %}
+                            <option value="{{ b_lesson.pk }}" {% if selected_lesson and selected_lesson.pk == b_lesson.pk %}selected{% endif %}>
+                                [{{ b_lesson.get_grade_display }} บทที่ {{ b_lesson.chapter }}] {{ b_lesson.title }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- กล่องพิมพ์คำถาม -->
+                <div class="space-y-2.5">
+                    <label for="ai-question-input" class="block text-sm font-bold text-bio-dark">
+                        คำถามชีววิทยาของคุณ {% if current_session %}<span class="text-xs font-normal text-slate-500">(ถามต่อเนื่องจากบทสนทนาด้านบนได้เลย)</span>{% endif %}
+                    </label>
+                    <textarea id="ai-question-input" name="ai_question" rows="3" required maxlength="800"
+                        placeholder="เช่น เซลล์พืชกับเซลล์สัตว์ต่างกันยังไง? หรือพิมพ์ถามต่อเนื่องว่า แล้วจุดไหนออกข้อสอบบ่อย?"
+                        class="w-full px-4 py-3 bg-bio-light/40 border border-bio-light rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-bio-main focus:bg-white transition">{{ ai_question }}</textarea>
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-[11px] text-slate-400">จำกัดความยาวไม่เกิน 800 ตัวอักษร · อ้างอิงเนื้อหาวิชาชีววิทยาโดยเฉพาะ</span>
+                        <button type="submit" class="px-8 py-3 bg-bio-main hover:bg-bio-dark text-white font-bold rounded-2xl text-sm shadow transition">
+                            🚀 ส่งคำถามชีววิทยา
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+        </section>
     </div>
 
 </div>
+
+<script>
+    // กดปุ่มคำถามแนะนำแล้วเติมลงในช่องคำถามพร้อมโฟกัสทันที
+    function fillBioPrompt(text) {
+        const input = document.getElementById('ai-question-input');
+        if (input) {
+            input.value = text;
+            input.focus();
+        }
+    }
+
+    // เลื่อนกล่องแชทลงมาที่ข้อความล่าสุดอัตโนมัติ
+    document.addEventListener('DOMContentLoaded', function () {
+        const chatBox = document.getElementById('bio-chat-scroll');
+        if (chatBox) {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    });
+</script>
 {% endblock %}

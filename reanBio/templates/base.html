@@ -541,7 +541,7 @@
       <a href="{% url 'flashcards' %}" class="{% if request.resolver_match.url_name == 'flashcards' or request.resolver_match.url_name == 'flashcard_deck_detail' or request.resolver_match.url_name == 'flashcard_deck_study' %}active{% endif %}">การ์ดคำศัพท์</a>
 
       {% if request.user.is_authenticated %}
-        <a href="{% url 'ask_ai' %}" class="{% if request.resolver_match.url_name == 'ask_ai' %}active{% endif %}">🤖 ถาม AI</a>
+        <a href="{% url 'ask_ai' %}" class="{% if request.resolver_match.url_name == 'ask_ai' or request.resolver_match.url_name == 'ask_ai_session' %}active{% endif %}">🤖 ถาม AI ชีววิทยา</a>
         <a href="{% url 'logout' %}" class="logout-link">ออกจากระบบ</a>
       {% else %}
         <a href="{% url 'login' %}">เข้าสู่ระบบ</a>
@@ -561,7 +561,7 @@
     class="main-container {% if request.resolver_match.url_name == 'login' or request.resolver_match.url_name == 'signup' %}full-width-container{% endif %}">
 
     <!-- Topbar -->
-    <header class="top-navbar">
+    <header class="top-navbar" style="gap: 12px; flex-wrap: wrap;">
       <!-- ปุ่ม Hamburger Menu (จะโชว์เฉพาะหน้าจอมือถือ) -->
       {% if request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'signup' %}
       <button onclick="toggleMobileSidebar()" class="md:hidden text-white font-bold text-2xl px-2 py-1 focus:outline-none">
@@ -571,38 +571,61 @@
       <div></div>
       {% endif %}
 
-      {% if request.user.is_authenticated %}
-      <div style="position: relative;">
-        <button onclick="toggleProfileDropdown()" class="user-pill-btn">
-          <span>ยินดีต้อนรับ, {{ request.user.username }}</span>
-          <span id="arrow-icon" style="font-size: 0.75rem; transition: 0.2s;">▲</span>
-        </button>
-
-        <div id="profile-dropdown" class="dropdown-card hidden">
-          <!-- กดแล้วเด้งมาหน้าโปรไฟล์นี้เสมอ -->
-          <a href="{% url 'profile' %}" class="profile-info-box">
-            <div class="avatar-circle">
-              {{ request.user.username|first|upper }}
-            </div>
-            <div style="display: flex; flex-direction: column; text-align: left;">
-              <span style="color: #287a28; font-weight: 700; font-size: 1rem; line-height: 1.2;">
-                {% if request.user.first_name %}
-                  {{ request.user.first_name }} {{ request.user.last_name }}
-                {% else %}
-                  {{ request.user.username }}
-                {% endif %}
-              </span>
-              <span style="color: #8ba28f; font-size: 0.8rem; font-weight: 500;">
-                @{{ request.user.username }}
-              </span>
-            </div>
+      <div class="flex items-center gap-2 flex-wrap ml-auto">
+        <!-- แถบปุ่มสลับโหมด Mockup ทันที (ไม่ต้องสมัครสมาชิกจริง) -->
+        <div class="flex items-center gap-1.5 bg-white/15 backdrop-blur-md p-1 rounded-full border border-white/25 text-xs font-bold">
+          <span class="hidden sm:inline px-2.5 text-white/90">โหมด Mockup:</span>
+          <a href="?mock_role=student"
+             class="px-3 py-1 rounded-full no-underline transition {% if request.user.is_authenticated and not request.user.is_teacher %}bg-white text-bio-dark shadow-sm{% else %}text-white hover:bg-white/20{% endif %}">
+            🧑‍🎓 นักเรียน
+          </a>
+          <a href="?mock_role=teacher"
+             class="px-3 py-1 rounded-full no-underline transition {% if request.user.is_teacher %}bg-white text-bio-dark shadow-sm{% else %}text-white hover:bg-white/20{% endif %}">
+            👩‍🏫 คุณครู
+          </a>
+          <a href="?mock_role=guest"
+             class="px-3 py-1 rounded-full no-underline transition {% if not request.user.is_authenticated %}bg-white text-bio-dark shadow-sm{% else %}text-white hover:bg-white/20{% endif %}">
+            👀 ผู้เยี่ยมชม
           </a>
         </div>
+
+        {% if request.user.is_authenticated %}
+        <div style="position: relative;">
+          <button onclick="toggleProfileDropdown()" class="user-pill-btn">
+            <span>{{ request.user.first_name|default:request.user.username }}</span>
+            <span id="arrow-icon" style="font-size: 0.75rem; transition: 0.2s;">▲</span>
+          </button>
+
+          <div id="profile-dropdown" class="dropdown-card hidden">
+            <a href="{% url 'profile' %}" class="profile-info-box">
+              <div class="avatar-circle">
+                {{ request.user.username|first|upper }}
+              </div>
+              <div style="display: flex; flex-direction: column; text-align: left;">
+                <span style="color: #287a28; font-weight: 700; font-size: 1rem; line-height: 1.2;">
+                  {{ request.user.first_name }} {{ request.user.last_name }}
+                </span>
+                <span style="color: #8ba28f; font-size: 0.8rem; font-weight: 500;">
+                  @{{ request.user.username }} (Mockup)
+                </span>
+              </div>
+            </a>
+          </div>
+        </div>
+        {% endif %}
       </div>
-      {% endif %}
     </header>
 
     <main class="content-wrapper">
+      {% if messages %}
+      <div class="w-full max-w-6xl space-y-2 mb-4">
+        {% for message in messages %}
+        <div class="p-4 rounded-2xl text-sm font-semibold shadow-sm flex items-center justify-between {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% elif message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200{% else %}bg-bio-light text-bio-dark border border-bio-main/20{% endif %}">
+          <span>{{ message }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
       {% block content %}{% endblock %}
     </main>
   </div>

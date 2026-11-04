@@ -1,33 +1,28 @@
-import os
+# 📌 Views สำหรับโปรเจกต์ reanBio (โหมด Mockup 100% — ไม่ใช้ฐานข้อมูล และไม่ต้องสมัครสมาชิกจริง)
+# ทุกหน้าและทุกปุ่มทำงานผ่านข้อมูลจำลองในหน่วยความจำ (mock_data.py)
+
 import csv
 import json
-import random
 import re
+from datetime import datetime
 from itertools import groupby
 
 from django.conf import settings
-from django.db import IntegrityError
-from django.db.models import Q
-from django.http import HttpResponse, Http404, JsonResponse
-from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse
-from django.contrib.auth import login, logout
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.utils import timezone
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render, redirect
+from django.urls import reverse
 from django.utils.html import escape
-from django.utils.http import url_has_allowed_host_and_scheme
 
-from .models import (
-    UserProfile, Classroom, Lesson, Question, Choice, Attempt, AttemptAnswer, Checkpoint, LessonView,
-    ClassroomVideo, ClassroomFile, ClassroomQuiz, ClassroomQuizQuestion, ClassroomQuizChoice,
-    ClassroomQuizAttempt, ClassroomQuizAnswer, FlashcardDeck, Flashcard, AIFeedback,
+from .ai_helper import ask_biology_ai, ask_biology_tutor_chat, AskAIError
+from .mock_data import (
+    MOCK_STUDENT, MOCK_STUDENT_2, MOCK_STUDENT_3, MOCK_TEACHER, MOCK_GUEST,
+    MOCK_CLASSROOMS, MOCK_FLASHCARD_DECKS, MOCK_ATTEMPTS, MOCK_CHAT_SESSIONS,
+    MockBioChatSession, MockBioChatMessage, MockAttempt, MockAttemptAnswer,
+    TUTOR_MODE_CHOICES, get_mock_lessons, get_mock_lesson, get_mock_classroom,
 )
-from .forms import UserSignUpForm, EmailOrUsernameAuthenticationForm
-from .ai_helper import ask_biology_ai, AskAIError
 
 
-# 📌 ช่วยเน้นคำค้นหาในเนื้อหา และตัดข้อความให้เหลือแค่ช่วงที่เจอคำ (snippet)
 def _highlight(text, query):
     escaped_text = escape(text)
     if not query:
@@ -37,7 +32,6 @@ def _highlight(text, query):
 
 
 def _render_checkpoint_html(checkpoint):
-    """สร้าง HTML การ์ดคำถามสั้นๆ ระหว่างเนื้อหา ตรวจถูก/ผิดด้วย JS ฝั่งเบราว์เซอร์ทันที ไม่เก็บคะแนนลงฐานข้อมูล"""
     choices_html = "".join(
         f'''<label class="flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-white cursor-pointer transition">
                 <input type="radio" name="cp{checkpoint.pk}" value="{c.pk}" data-correct="{"1" if c.is_correct else "0"}" class="accent-bio-main w-4 h-4">
@@ -60,8 +54,6 @@ def _render_checkpoint_html(checkpoint):
 
 
 def _render_content_html(text, query, checkpoints=None):
-    """แปลงเนื้อหาบทเรียนเป็น HTML: escape ป้องกัน XSS, เน้นคำค้นหา, ขึ้นย่อหน้าใหม่ตามบรรทัดว่าง
-    และแทรกคำถามสั้นๆ (checkpoint) ระหว่างย่อหน้าตามตำแหน่งที่กำหนดไว้"""
     highlighted = _highlight(text or "", query)
     paragraphs = [p.strip().replace("\n", "<br>") for p in highlighted.split("\n\n") if p.strip()]
 
@@ -94,766 +86,230 @@ def _build_content_snippet(content, query, radius=70):
         snippet = snippet + "…"
     return _highlight(snippet, query)
 
-# 📌 Decorator เช็กสิทธิ์เฉพาะคุณครู
-def teacher_required(view_func):
-    @login_required
-    def _wrapped_view(request, *args, **kwargs):
-        if getattr(request.user, 'is_teacher', False):
-            return view_func(request, *args, **kwargs)
-        return redirect('my_classrooms')
-    return _wrapped_view
 
 def home(request):
     return render(request, 'index.html')
 
 
-# 📌 หน้า "ถาม AI" แยกต่างหาก: ถามคำถามชีววิทยาทั่วไป (ไม่ผูกกับบทเรียนใดบทเรียนหนึ่ง)
-# ใช้ได้ทั้งนักเรียนและคุณครู
-@login_required
-def ask_ai_view(request):
-    ai_question = ''
-    ai_answer = ''
-    ai_error = ''
-    if request.method == 'POST':
-        ai_question = request.POST.get('ai_question', '').strip()
-        try:
-            ai_answer = ask_biology_ai(ai_question)
-        except AskAIError as exc:
-            ai_error = str(exc)
-
-    return render(request, 'reanBio/ask_ai.html', {
-        'ai_question': ai_question,
-        'ai_answer': ai_answer,
-        'ai_error': ai_error,
-    })
-
-
-# 📌 รับ feedback (👍/👎) จากผู้ใช้ต่อคำตอบของ AI เก็บไว้ดูว่าคำตอบช่วยได้จริงไหม เพื่อปรับปรุงต่อ
-# เรียกจาก JS ด้วย fetch() แบบ POST + JSON body (ดู reanBio/templates/reanBio/_ai_feedback_widget.html)
-@login_required
-def ai_feedback_view(request):
-    if request.method != 'POST':
-        return JsonResponse({'ok': False, 'error': 'ต้องส่งแบบ POST เท่านั้น'}, status=405)
-
-    try:
-        payload = json.loads(request.body.decode('utf-8'))
-    except (ValueError, UnicodeDecodeError):
-        return JsonResponse({'ok': False, 'error': 'ข้อมูลไม่ถูกต้อง'}, status=400)
-
-    question = (payload.get('question') or '').strip()
-    answer = (payload.get('answer') or '').strip()
-    lesson_id = payload.get('lesson_id') or None
-
-    if not question or not answer:
-        return JsonResponse({'ok': False, 'error': 'ไม่มีคำถาม/คำตอบให้บันทึก'}, status=400)
-
-    lesson_obj = None
-    if lesson_id:
-        lesson_obj = Lesson.objects.filter(pk=lesson_id).first()
-
-    AIFeedback.objects.create(
-        user=request.user,
-        question=question[:2000],
-        answer=answer[:4000],
-        lesson=lesson_obj,
-        is_helpful=bool(payload.get('is_helpful')),
-    )
-    return JsonResponse({'ok': True})
-
+# ============================================================
+# 📌 1. ระบบสลับบทบาท Mockup ด้วยปุ่มกด (ไม่ต้องสมัครสมาชิกจริง)
+# ============================================================
 
 def signup(request):
-    next_url = _safe_next_url(request)
-
-    if request.method == 'POST':
-        form = UserSignUpForm(request.POST)
-        if form.is_valid():
-            user = form.save(commit=False)
-            user.role = form.cleaned_data.get('role')
-            user.first_name = form.cleaned_data.get('first_name')
-            user.last_name = form.cleaned_data.get('last_name')
-            user.save()
-
-            user_grade = request.POST.get('grade_level', request.POST.get('grade', '')).strip()
-            UserProfile.objects.create(
-                user=user,
-                grade=user_grade
-            )
-
-            # 📌 ตอนนี้มี auth backend มากกว่า 1 ตัว (เข้าสู่ระบบด้วย username/อีเมลได้) ต้องระบุ backend ให้ login() ชัดเจน
-            login(request, user, backend='reanBio.auth_backends.EmailOrUsernameModelBackend')
-            # 📌 ถ้ามาจากลิงก์ที่ระบุปลายทางไว้ (เช่น กดสมัครจากหน้าการ์ดคำศัพท์) ให้กลับไปหน้านั้นก่อน
-            if next_url:
-                return redirect(next_url)
-            if getattr(user, 'is_teacher', False):
-                return redirect('teacher_dashboard')
-            return redirect('home')
-    else:
-        form = UserSignUpForm()
-
-    return render(request, 'reanBio/signup.html', {'form': form, 'next': next_url})
-
-def _safe_next_url(request):
-    """📌 กันลิงก์เปิดเว็บอื่น (open redirect): รับพารามิเตอร์ next ได้เฉพาะลิงก์ภายในเว็บนี้เท่านั้น"""
-    next_url = request.POST.get('next') or request.GET.get('next') or ''
-    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
-        next_url = ''
-    return next_url
+    next_url = request.GET.get('next') or request.POST.get('next') or reverse('home')
+    role = request.GET.get('role') or request.POST.get('role')
+    if request.method == 'POST' or role in ('student', 'teacher'):
+        chosen_role = role if role in ('student', 'teacher') else 'student'
+        target = reverse('teacher_dashboard') if chosen_role == 'teacher' else next_url
+        resp = redirect(target)
+        resp.set_cookie('reanbio_mock_role', chosen_role, max_age=86400 * 30)
+        messages.success(
+            request,
+            f"เข้าใช้งานโหมด Mockup ในฐานะ {'คุณครู (ครูวิภา ชีววิทยา)' if chosen_role == 'teacher' else 'นักเรียน (สมชาย สายวิทย์ ม.4/1)'} เรียบร้อยแล้ว!"
+        )
+        return resp
+    return render(request, 'reanBio/signup.html', {'next': next_url})
 
 
 def login_view(request):
-    next_url = _safe_next_url(request)
-
-    if request.method == 'POST':
-        # 📌 เข้าสู่ระบบได้ทั้งด้วย username หรืออีเมล (ดูตรรกะจริงที่ reanBio/auth_backends.py)
-        form = EmailOrUsernameAuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
-
-            # 🛑 บล็อกบัญชี Admin ไม่ให้ล็อกอินผ่านหน้าเว็บปกติ
-            if user.is_superuser or user.is_staff:
-                form.add_error(None, 'บัญชีผู้ดูแลระบบ (Admin) ไม่สามารถเข้าใช้งานหน้านี้ได้ กรุณาเข้าสู่ระบบผ่านหน้า /admin/')
-            else:
-                login(request, user)
-                # 📌 ถ้ามาจากลิงก์ที่ระบุปลายทางไว้ (เช่น กดสมัคร/ล็อกอินจากหน้าการ์ดคำศัพท์) ให้กลับไปหน้านั้นก่อน
-                if next_url:
-                    return redirect(next_url)
-                if getattr(user, 'is_teacher', False):
-                    return redirect('teacher_dashboard')
-                return redirect('home')
-    else:
-        form = EmailOrUsernameAuthenticationForm()
-
-    return render(request, 'reanBio/login.html', {'form': form, 'next': next_url})
+    next_url = request.GET.get('next') or request.POST.get('next') or reverse('home')
+    role = request.GET.get('role') or request.POST.get('role')
+    if request.method == 'POST' or role in ('student', 'teacher'):
+        chosen_role = role if role in ('student', 'teacher') else 'student'
+        target = reverse('teacher_dashboard') if chosen_role == 'teacher' else next_url
+        resp = redirect(target)
+        resp.set_cookie('reanbio_mock_role', chosen_role, max_age=86400 * 30)
+        messages.success(
+            request,
+            f"เข้าสู่ระบบโหมด Mockup ในฐานะ {'คุณครู (ครูวิภา ชีววิทยา)' if chosen_role == 'teacher' else 'นักเรียน (สมชาย สายวิทย์ ม.4/1)'} เรียบร้อยแล้ว!"
+        )
+        return resp
+    return render(request, 'reanBio/login.html', {'next': next_url})
 
 
-# 📌 กรอกข้อมูลนักเรียน (ชื่อ-นามสกุล/ชั้น/เลขที่) ครั้งเดียว ใช้ซ้ำได้ทุกห้องเรียน/แบบทดสอบ
-# ถูกเรียกตอนนักเรียนกดเข้าห้องเรียนครั้งแรก (หรือกดเริ่มทำแบบทดสอบตรงๆ โดยยังไม่เคยกรอก)
-@login_required
+def user_logout(request):
+    resp = redirect('home')
+    resp.set_cookie('reanbio_mock_role', 'guest', max_age=86400 * 30)
+    messages.info(request, "สลับเป็นโหมดผู้เยี่ยมชม (ยังไม่ได้เข้าสู่ระบบ) เรียบร้อยแล้ว — กดปุ่มเลือกโหมดนักเรียน/คุณครูได้ตลอดเวลา")
+    return resp
+
+
 def student_info_view(request):
-    if getattr(request.user, 'is_teacher', False):
-        return redirect('teacher_dashboard')
-
-    profile, _ = UserProfile.objects.get_or_create(user=request.user)
-    next_url = _safe_next_url(request)
-
+    next_url = request.GET.get('next') or request.POST.get('next') or reverse('my_classrooms')
     if request.method == 'POST':
-        full_name = request.POST.get('full_name', '').strip()
-        student_class = request.POST.get('student_class', '').strip()
-        student_number = request.POST.get('student_number', '').strip()
-
-        if not full_name or not student_class or not student_number:
-            messages.error(request, 'กรุณากรอกข้อมูลให้ครบทุกช่อง')
-        else:
-            profile.full_name = full_name
-            profile.student_class = student_class
-            profile.student_number = student_number
-            profile.save()
-            messages.success(request, 'บันทึกข้อมูลเรียบร้อยแล้ว')
-            return redirect(next_url or 'my_classrooms')
-
+        messages.success(request, "บันทึกข้อมูลนักเรียน (Mockup) เรียบร้อยแล้ว")
+        return redirect(next_url)
     return render(request, 'reanBio/student_info_form.html', {
-        'profile': profile,
+        'full_name': request.user.userprofile.full_name,
+        'student_class': request.user.userprofile.student_class,
+        'student_number': request.user.userprofile.student_number,
         'next': next_url,
     })
+
+
+# ============================================================
+# 📌 2. แชทบอทติวเตอร์ชีววิทยาอัจฉริยะ (Smart Biology AI Tutor)
+# ============================================================
+
+def ask_ai_view(request, session_pk=None):
+    ai_question = ''
+    ai_answer = ''
+    ai_error = ''
+    ai_sources = []
+
+    bio_lessons = get_mock_lessons(subject='bio')
+    valid_modes = dict(TUTOR_MODE_CHOICES)
+    is_new_requested = request.GET.get('new') == '1'
+
+    target_session_id = session_pk or request.POST.get('session_id') or request.GET.get('session_id')
+    current_session = None
+    if target_session_id and str(target_session_id).isdigit():
+        sid = int(target_session_id)
+        current_session = next((s for s in MOCK_CHAT_SESSIONS if s.pk == sid), None)
+    elif not is_new_requested and MOCK_CHAT_SESSIONS and not request.GET.get('lesson'):
+        current_session = MOCK_CHAT_SESSIONS[0]
+
+    selected_lesson = current_session.lesson if current_session else None
+    lesson_param = request.POST.get('lesson_id') if request.method == 'POST' else request.GET.get('lesson')
+    if lesson_param is not None:
+        if str(lesson_param).strip().isdigit():
+            selected_lesson = get_mock_lesson(int(lesson_param))
+        elif request.method == 'POST' and lesson_param == '':
+            selected_lesson = None
+
+    selected_mode = current_session.tutor_mode if current_session else 'explain'
+    mode_param = request.POST.get('tutor_mode') or request.GET.get('mode')
+    if mode_param in valid_modes:
+        selected_mode = mode_param
+
+    if request.method == 'POST':
+        ai_question = request.POST.get('ai_question', '').strip()
+        try:
+            prior_history = []
+            if current_session is not None:
+                prior_history = [
+                    {'role': m.role, 'content': m.content}
+                    for m in current_session.messages.all()
+                ]
+
+            result = ask_biology_tutor_chat(
+                question=ai_question,
+                history=prior_history,
+                lesson=selected_lesson,
+                tutor_mode=selected_mode,
+            )
+            ai_answer = result['answer']
+            ai_sources = result['sources']
+
+            if current_session is None:
+                new_pk = (max((s.pk for s in MOCK_CHAT_SESSIONS), default=0) + 1)
+                short_title = ai_question[:60] + ('…' if len(ai_question) > 60 else '')
+                current_session = MockBioChatSession(
+                    pk=new_pk,
+                    title=short_title or "บทสนทนาชีววิทยา",
+                    lesson=selected_lesson,
+                    tutor_mode=selected_mode,
+                    messages=[],
+                )
+                MOCK_CHAT_SESSIONS.insert(0, current_session)
+            else:
+                current_session.lesson = selected_lesson
+                current_session.tutor_mode = selected_mode
+
+            current_session.messages._items.append(MockBioChatMessage('user', ai_question))
+            current_session.messages._items.append(
+                MockBioChatMessage('assistant', ai_answer, sources=ai_sources, engine=result.get('engine', 'local_bio_rag'))
+            )
+        except AskAIError as exc:
+            ai_error = str(exc)
+
+    chat_messages = current_session.messages.all() if current_session else []
+
+    return render(request, 'reanBio/ask_ai.html', {
+        'ai_question': '' if ai_answer else ai_question,
+        'last_question': ai_question,
+        'ai_answer': ai_answer,
+        'ai_error': ai_error,
+        'ai_sources': ai_sources,
+        'current_session': current_session,
+        'sessions': MOCK_CHAT_SESSIONS,
+        'chat_messages': chat_messages,
+        'bio_lessons': bio_lessons,
+        'selected_lesson': selected_lesson,
+        'selected_mode': selected_mode,
+        'tutor_modes': TUTOR_MODE_CHOICES,
+        'kb_doc_count': 2,
+        'has_api_key': bool(getattr(settings, 'ANTHROPIC_API_KEY', '')),
+    })
+
+
+def bio_tutor_new_session_view(request):
+    lesson_id = request.GET.get('lesson') or request.POST.get('lesson_id') or ''
+    mode = request.GET.get('mode') or request.POST.get('tutor_mode') or 'explain'
+    url = reverse('ask_ai') + f"?new=1&mode={mode}"
+    if str(lesson_id).isdigit():
+        url += f"&lesson={lesson_id}"
+    return redirect(url)
+
+
+def bio_tutor_delete_session_view(request, session_pk):
+    if request.method == 'POST':
+        MOCK_CHAT_SESSIONS[:] = [s for s in MOCK_CHAT_SESSIONS if s.pk != int(session_pk)]
+        messages.success(request, 'ลบประวัติบทสนทนาชีววิทยา (Mockup) เรียบร้อยแล้ว')
+    return redirect(f"{reverse('ask_ai')}?new=1")
+
+
+def ai_feedback_view(request):
+    return JsonResponse({'ok': True})
+
+
+# ============================================================
+# 📌 3. คลังบทเรียน & หน้าอ่านบทเรียน
+# ============================================================
 
 def lessons_view(request):
     grade_filter = request.GET.get('grade', 'all')
     search_query = request.GET.get('q', '').strip()
 
-    # 📌 แสดงเฉพาะบทเรียนวิชาชีววิทยา (วิชาที่แอปกำลังโฟกัสอยู่ตอนนี้) บทเรียนภาษาอังกฤษยังเก็บไว้ในฐานข้อมูล แค่ไม่แสดงในรายการนี้
-    lessons = Lesson.objects.filter(subject='bio')
+    lessons_list = get_mock_lessons(subject='bio', grade=grade_filter)
+    filtered = []
+    for l in lessons_list:
+        l.search_snippet = ""
+        if search_query:
+            q_low = search_query.lower()
+            if q_low not in l.title.lower() and q_low not in l.description.lower() and q_low not in l.content.lower():
+                continue
+            l.search_snippet = _build_content_snippet(l.content, search_query)
+        filtered.append(l)
 
-    if grade_filter in ['m4', 'm5', 'm6']:
-        lessons = lessons.filter(grade=grade_filter)
-
-    # 📌 ค้นหาทั้งชื่อบทเรียน คำอธิบายย่อย และเนื้อหาแบบเต็ม
-    if search_query:
-        lessons = lessons.filter(
-            Q(title__icontains=search_query)
-            | Q(description__icontains=search_query)
-            | Q(content__icontains=search_query)
-        )
-
-    lessons = list(lessons)
-
-    # 📌 ถ้ามีคำค้นหา แนบตัวอย่างข้อความ (snippet) ที่เจอคำในเนื้อหา พร้อมไฮไลต์คำนั้น
-    if search_query:
-        for lesson in lessons:
-            if search_query.lower() in lesson.title.lower():
-                lesson.search_snippet = ""
-            else:
-                lesson.search_snippet = _build_content_snippet(lesson.content, search_query) or \
-                    _build_content_snippet(lesson.description, search_query)
-    else:
-        for lesson in lessons:
-            lesson.search_snippet = ""
-
-    # 📌 จัดกลุ่มบทเรียนตาม "บทที่" ของหนังสือเรียน (lessons ถูกเรียงตาม grade, chapter, subtopic_code อยู่แล้วจาก Meta.ordering)
     chapter_groups = []
-    for (grade, chapter, chapter_title), group_iter in groupby(lessons, key=lambda l: (l.grade, l.chapter, l.chapter_title)):
+    for ch_num, group_iter in groupby(filtered, key=lambda x: x.chapter):
+        group_items = list(group_iter)
         chapter_groups.append({
-            'grade': grade,
-            'chapter': chapter,
-            'chapter_title': chapter_title,
-            'lessons': list(group_iter),
+            'chapter': ch_num,
+            'chapter_title': group_items[0].chapter_title if group_items else '',
+            'lessons': group_items,
         })
 
     return render(request, 'reanBio/lessons.html', {
-        'lessons': lessons,
+        'lessons': filtered,
         'chapter_groups': chapter_groups,
         'current_grade': grade_filter,
         'search_query': search_query,
     })
 
 
-def _chapters_by_grade():
-    """คืนค่า dict {grade: [เลขบทที่ทั้งหมดของ grade นั้น]} ใช้ในฟอร์มกรอง/สร้างแบบทดสอบ (เฉพาะวิชาชีววิทยา)"""
-    mapping = {}
-    chapters_qs = Lesson.objects.filter(subject='bio').values_list('grade', 'chapter').distinct().order_by('grade', 'chapter')
-    for grade, chapter in chapters_qs:
-        mapping.setdefault(grade, []).append(chapter)
-    return mapping
-
-
-# ============================================================
-# 📌 การ์ดคำศัพท์แบบพลิกดู (Interactive Flashcards)
-# ============================================================
-def flashcards_view(request):
-    """สุ่มการ์ดคำศัพท์จากคลังคำถามของบทเรียน ให้พลิกดูหน้า-หลังเพื่อทบทวนความรู้
-    (ไม่เก็บคะแนน ไม่ต้องเข้าสู่ระบบ) กรองตามระดับชั้น/บทที่ได้"""
-    grade_filter = request.GET.get('grade', 'all')
-    chapter_filter = request.GET.get('chapter', '').strip()
-
-    questions = Question.objects.select_related('lesson').prefetch_related('choices').filter(lesson__subject='bio')
-    if grade_filter in ['m4', 'm5', 'm6']:
-        questions = questions.filter(lesson__grade=grade_filter)
-    if chapter_filter.isdigit():
-        questions = questions.filter(lesson__chapter=int(chapter_filter))
-
-    # 📌 ต้องสมัครสมาชิก/เข้าสู่ระบบก่อนถึงจะทบทวนการ์ดได้จริง (คนที่ยังไม่ล็อกอินเห็นแค่จำนวนการ์ด กดทบทวนไม่ได้)
-    # เลยไม่ส่งเนื้อหาการ์ด (คำถาม/เฉลย) ไปกับหน้าเว็บเลยถ้ายังไม่ได้ล็อกอิน กันดูเฉลยผ่าน view source ได้ด้วย
-    if request.user.is_authenticated:
-        questions = list(questions)
-        random.shuffle(questions)
-        questions = questions[:60]  # จำกัดจำนวนการ์ดต่อรอบไม่ให้เยอะเกินไป
-
-        cards = []
-        for q in questions:
-            if q.question_type == 'mcq':
-                back = next((c.text for c in q.choices.all() if c.is_correct), '')
-            else:
-                back = (q.accepted_answers or [''])[0]
-            if q.explanation:
-                back = f"{back}\n\n{q.explanation}" if back else q.explanation
-            cards.append({
-                'front': q.text,
-                'back': back or 'ยังไม่มีเฉลยสำหรับข้อนี้',
-                'lesson': f"{q.lesson.subtopic_code} {q.lesson.title}".strip(),
-            })
-        card_count = len(cards)
-    else:
-        cards = []
-        card_count = min(questions.count(), 60)
-
-    chapters_by_grade = _chapters_by_grade()
-    if grade_filter in chapters_by_grade:
-        available_chapters = chapters_by_grade[grade_filter]
-    else:
-        available_chapters = sorted({c for chapters in chapters_by_grade.values() for c in chapters})
-
-    # 📌 ถ้าเป็นนักเรียนที่ล็อกอินอยู่ ให้แสดงแท็บ "การ์ดของฉัน" (ชุดการ์ดที่นักเรียนสร้างเอง) ในหน้าเดียวกันด้วย
-    show_my_decks_tab = request.user.is_authenticated and not getattr(request.user, 'is_teacher', False)
-    my_decks = FlashcardDeck.objects.filter(owner=request.user) if show_my_decks_tab else None
-
-    initial_tab = request.GET.get('tab', 'bank')
-
-    # 📌 บันทึกการเล่นการ์ดคำศัพท์จากคลังกลาง (เฉพาะตอนเปิดแท็บนี้จริงๆ) ไว้แสดงประวัติในแท็บ "เข้าชมล่าสุด" ของหน้าโปรไฟล์
-    if request.user.is_authenticated and initial_tab == 'bank':
-        grade_label = dict(Lesson.GRADE_CHOICES).get(grade_filter, 'ทุกระดับชั้น')
-        filter_label = f"{grade_label} · บทที่ {chapter_filter}" if chapter_filter else grade_label
-        LessonView.objects.create(user=request.user, activity_type='flashcard_bank', label=filter_label)
-
-    return render(request, 'reanBio/flashcards.html', {
-        'cards_json': json.dumps(cards, ensure_ascii=False),
-        'card_count': card_count,
-        'current_grade': grade_filter,
-        'current_chapter': chapter_filter,
-        'available_chapters': available_chapters,
-        'show_my_decks_tab': show_my_decks_tab,
-        'my_decks': my_decks,
-        'initial_tab': initial_tab,
-    })
-
-
-@login_required
-def profile(request):
-    try:
-        user_profile = UserProfile.objects.get(user=request.user)
-    except UserProfile.DoesNotExist:
-        user_profile = None
-    return render(request, 'reanBio/profile.html', {'profile': user_profile})
-
-def user_logout(request):
-    logout(request)
-    return redirect('home')
-
-# 📌 แดชบอร์ดจัดการห้องเรียนของคุณครู
-@teacher_required
-def teacher_dashboard_view(request):
-    if request.method == 'POST':
-        name = request.POST.get('name', '').strip()
-        if name:
-            Classroom.objects.create(name=name, teacher=request.user)
-            messages.success(request, 'สร้างห้องเรียนสำเร็จ!')
-            return redirect('teacher_dashboard')
-
-    classrooms = Classroom.objects.filter(teacher=request.user).order_by('-created_at')
-    return render(request, 'reanBio/teacher_dashboard.html', {'classrooms': classrooms})
-
-# 📌 หน้าห้องเรียนของฉัน (สำหรับนักเรียน)
-@login_required
-def my_classroom_view(request):
-    joined_classrooms = request.user.joined_classrooms.all().order_by('-created_at')
-    return render(request, 'reanBio/my_classrooms.html', {'classrooms': joined_classrooms})
-
-# 📌 ฟังก์ชันให้นักเรียนกรอกรหัสเข้าร่วมห้องเรียน
-@login_required
-def join_classroom_view(request):
-    if request.method == 'POST':
-        code = request.POST.get('code', '').strip().upper()
-        try:
-            classroom = Classroom.objects.get(code=code)
-            classroom.students.add(request.user)
-            messages.success(request, f'เข้าร่วมห้องเรียน "{classroom.name}" เรียบร้อยแล้ว!')
-            return redirect('classroom_detail', code=classroom.code)
-        except Classroom.DoesNotExist:
-            messages.error(request, 'ไม่พบห้องเรียนรหัสนี้ กรุณาตรวจสอบรหัสอีกครั้ง')
-            return redirect('my_classrooms')
-    return redirect('my_classrooms')
-
-# 📌 รายละเอียดภายในห้องเรียน
-@login_required
-def classroom_detail_view(request, code):
-    classroom = get_object_or_404(Classroom, code=code)
-    quizzes = list(classroom.quizzes.all())
-
-    # 📌 ให้นักเรียนเห็นสถานะการทำแบบทดสอบของตัวเอง (ทำได้คนละครั้งเดียว)
-    if not getattr(request.user, 'is_teacher', False):
-        # 📌 นักเรียนที่ยังไม่เคยกรอกชื่อ/ชั้น/เลขที่: เด้งไปกรอกก่อน แล้วค่อยกลับมาที่ห้องเรียนนี้
-        profile, _ = UserProfile.objects.get_or_create(user=request.user)
-        if not profile.has_student_info:
-            return redirect(f"{reverse('student_info')}?next={request.path}")
-
-        my_attempts = {
-            a.quiz_id: a for a in
-            ClassroomQuizAttempt.objects.filter(quiz__classroom=classroom, user=request.user)
-        }
-        for quiz in quizzes:
-            quiz.my_attempt = my_attempts.get(quiz.id)
-
-    return render(request, 'reanBio/classroom_detail.html', {
-        'classroom': classroom,
-        'videos': classroom.videos.all(),
-        'quizzes': quizzes,
-        'files': classroom.files.all(),
-    })
-
-
-# 📌 หน้าแยกสำหรับดูคลิปวิดีโอในห้องเรียนทีละคลิป (กดเข้ามาจากหน้าห้องเรียน)
-# บันทึกการเข้าชมไว้แสดงในแท็บ "วิดีโอที่เรียน" ของหน้าโปรไฟล์
-@login_required
-def classroom_video_watch_view(request, code, video_pk):
-    classroom = get_object_or_404(Classroom, code=code)
-    video = get_object_or_404(ClassroomVideo, pk=video_pk, classroom=classroom)
-
-    LessonView.objects.create(user=request.user, activity_type='classroom_video', classroom_video=video, label=video.title)
-
-    return render(request, 'reanBio/classroom_video_watch.html', {
-        'classroom': classroom,
-        'video': video,
-    })
-
-
-# ============================================================
-# 📌 6. เครื่องมือจัดการห้องเรียนสำหรับคุณครู (คลิปวิดีโอ / ไฟล์เอกสาร / แบบทดสอบที่สร้างเอง)
-# ============================================================
-
-def _can_manage_classroom(user, classroom):
-    """สิทธิ์จัดการเครื่องมือของห้องเรียน: เป็นคุณครูเจ้าของห้อง หรือเป็นคุณครูคนอื่น (ตามสิทธิ์เดิมของหน้านี้)"""
-    return user.is_authenticated and (user == classroom.teacher or getattr(user, 'is_teacher', False))
-
-
-@login_required
-def classroom_add_video_view(request, code):
-    classroom = get_object_or_404(Classroom, code=code)
-    if not _can_manage_classroom(request.user, classroom):
-        return redirect('classroom_detail', code=code)
-
-    if request.method == 'POST':
-        title = request.POST.get('title', '').strip()
-        youtube_url = request.POST.get('youtube_url', '').strip()
-        video_file = request.FILES.get('video_file')
-        if not title or not (youtube_url or video_file):
-            messages.error(request, 'กรุณาใส่ชื่อคลิป และลิงก์ YouTube หรือไฟล์วิดีโออย่างน้อย 1 อย่าง')
-            return redirect('classroom_add_video', code=code)
-
-        ClassroomVideo.objects.create(
-            classroom=classroom, title=title, youtube_url=youtube_url,
-            video_file=video_file, added_by=request.user,
-        )
-        messages.success(request, 'เพิ่มคลิปวิดีโอเรียบร้อยแล้ว')
-        return redirect('classroom_detail', code=code)
-
-    return render(request, 'reanBio/classroom_add_video.html', {'classroom': classroom})
-
-
-@login_required
-def classroom_add_file_view(request, code):
-    classroom = get_object_or_404(Classroom, code=code)
-    if not _can_manage_classroom(request.user, classroom):
-        return redirect('classroom_detail', code=code)
-
-    if request.method == 'POST':
-        title = request.POST.get('title', '').strip()
-        uploaded_file = request.FILES.get('file')
-        if not title or not uploaded_file:
-            messages.error(request, 'กรุณาใส่ชื่อเอกสารและเลือกไฟล์')
-            return redirect('classroom_add_file', code=code)
-        if uploaded_file.size > 20 * 1024 * 1024:
-            messages.error(request, 'ไฟล์มีขนาดใหญ่เกินไป (จำกัดไม่เกิน 20MB)')
-            return redirect('classroom_add_file', code=code)
-
-        ClassroomFile.objects.create(
-            classroom=classroom, title=title, file=uploaded_file, added_by=request.user,
-        )
-        messages.success(request, 'อัปโหลดไฟล์การสอนเรียบร้อยแล้ว')
-        return redirect('classroom_detail', code=code)
-
-    return render(request, 'reanBio/classroom_add_file.html', {'classroom': classroom})
-
-
-@login_required
-def classroom_add_quiz_view(request, code):
-    classroom = get_object_or_404(Classroom, code=code)
-    if not _can_manage_classroom(request.user, classroom):
-        return redirect('classroom_detail', code=code)
-
-    if request.method == 'POST':
-        title = request.POST.get('quiz_title', '').strip()
-        indices_raw = request.POST.get('question_indices', '').strip()
-        indices = [n for n in indices_raw.split(',') if n.strip() != '']
-
-        if not title or not indices:
-            messages.error(request, 'กรุณาใส่ชื่อแบบทดสอบและคำถามอย่างน้อย 1 ข้อ')
-            return redirect('classroom_add_quiz', code=code)
-
-        quiz = ClassroomQuiz.objects.create(classroom=classroom, title=title, created_by=request.user)
-
-        order = 0
-        for n in indices:
-            q_text = request.POST.get(f'q_text_{n}', '').strip()
-            if not q_text:
-                continue
-            order += 1
-            q_type = request.POST.get(f'q_type_{n}', 'mcq')
-            try:
-                points = max(1, int(request.POST.get(f'q_points_{n}', 1)))
-            except (ValueError, TypeError):
-                points = 1
-
-            if q_type == 'text':
-                accepted_raw = request.POST.get(f'q_accepted_{n}', '').strip()
-                accepted_answers = [a.strip() for a in accepted_raw.split(',') if a.strip()]
-                ClassroomQuizQuestion.objects.create(
-                    quiz=quiz, order=order, question_type='text', text=q_text,
-                    points=points, accepted_answers=accepted_answers,
-                )
-            else:
-                question = ClassroomQuizQuestion.objects.create(
-                    quiz=quiz, order=order, question_type='mcq', text=q_text, points=points,
-                )
-                choice_texts = request.POST.getlist(f'q_choice_{n}')
-                correct_idx_raw = request.POST.get(f'q_correct_{n}', '')
-                added_choice = False
-                for c_idx, c_text in enumerate(choice_texts):
-                    c_text = c_text.strip()
-                    if not c_text:
-                        continue
-                    ClassroomQuizChoice.objects.create(
-                        question=question, order=c_idx + 1, text=c_text,
-                        is_correct=(str(c_idx) == correct_idx_raw),
-                    )
-                    added_choice = True
-                if not added_choice:
-                    question.delete()
-                    order -= 1
-
-        if quiz.questions.count() == 0:
-            quiz.delete()
-            messages.error(request, 'กรุณากรอกคำถามให้ครบถ้วนอย่างน้อย 1 ข้อ (ข้อแบบเลือกคำตอบต้องมีตัวเลือกด้วย)')
-            return redirect('classroom_add_quiz', code=code)
-
-        messages.success(request, 'สร้างแบบทดสอบเรียบร้อยแล้ว')
-        return redirect('classroom_detail', code=code)
-
-    return render(request, 'reanBio/classroom_add_quiz.html', {'classroom': classroom})
-
-
-@login_required
-def classroom_quiz_start_view(request, quiz_pk):
-    """เริ่มทำแบบทดสอบทันที โดยใช้ชื่อ-นามสกุล/ชั้น/เลขที่ ที่นักเรียนกรอกไว้ครั้งเดียวตอนเข้าห้องเรียน (UserProfile)
-    ไม่ต้องกรอกซ้ำทุกครั้งที่ทำข้อสอบ ทำได้คนละครั้งเดียวต่อแบบทดสอบหนึ่งชุด: ถ้าเคยเริ่มไว้แล้วให้กลับไปทำต่อ/ดูผลแทนการเริ่มใหม่"""
-    quiz = get_object_or_404(ClassroomQuiz, pk=quiz_pk)
-    if getattr(request.user, 'is_teacher', False):
-        messages.info(request, "บทบาทคุณครูใช้สำหรับสร้างแบบทดสอบเท่านั้น ไม่มีการทำแบบทดสอบ")
-        return redirect('classroom_detail', code=quiz.classroom.code)
-
-    existing = ClassroomQuizAttempt.objects.filter(quiz=quiz, user=request.user).first()
-    if existing:
-        if existing.submitted_at:
-            messages.info(request, "คุณทำแบบทดสอบนี้ไปแล้ว ทำได้เพียงครั้งเดียวเท่านั้น")
-            return redirect('classroom_quiz_result', attempt_pk=existing.pk)
-        return redirect('classroom_quiz_take', attempt_pk=existing.pk)
-
-    # 🛑 กันกรณีเข้ามาตรงๆ ทาง URL โดยยังไม่เคยกรอกชื่อ/ชั้น/เลขที่ (ปกติจะถูกดักไว้ตั้งแต่หน้าห้องเรียนแล้ว)
-    profile, _ = UserProfile.objects.get_or_create(user=request.user)
-    if not profile.has_student_info:
-        return redirect(f"{reverse('student_info')}?next={request.path}")
-
-    questions = list(quiz.questions.prefetch_related('choices').all())
-    if not questions:
-        messages.error(request, 'แบบทดสอบนี้ยังไม่มีคำถาม')
-        return redirect('classroom_detail', code=quiz.classroom.code)
-
-    try:
-        attempt = ClassroomQuizAttempt.objects.create(
-            quiz=quiz, user=request.user, max_score=sum(q.points for q in questions),
-            student_name=profile.full_name, student_class=profile.student_class,
-            student_number=profile.student_number,
-        )
-    except IntegrityError:
-        # 🛑 กันกรณีกดส่งซ้ำ/เปิดสองแท็บพร้อมกันแล้วสร้างซ้ำ (unique_together กันไว้อีกชั้น)
-        existing = ClassroomQuizAttempt.objects.filter(quiz=quiz, user=request.user).first()
-        if existing:
-            if existing.submitted_at:
-                return redirect('classroom_quiz_result', attempt_pk=existing.pk)
-            return redirect('classroom_quiz_take', attempt_pk=existing.pk)
-        raise
-
-    for i, q in enumerate(questions, start=1):
-        ClassroomQuizAnswer.objects.create(attempt=attempt, question=q, order=i)
-
-    return redirect('classroom_quiz_take', attempt_pk=attempt.pk)
-
-
-@login_required
-def classroom_quiz_take_view(request, attempt_pk):
-    attempt = get_object_or_404(ClassroomQuizAttempt, pk=attempt_pk, user=request.user)
-    if attempt.submitted_at:
-        return redirect('classroom_quiz_result', attempt_pk=attempt.pk)
-
-    answers = list(
-        attempt.answers.select_related('question')
-        .prefetch_related('question__choices')
-        .order_by('order')
-    )
-
-    if request.method == 'POST':
-        total_score = 0
-        for ans in answers:
-            q = ans.question
-            if q.question_type == 'mcq':
-                choice_id = request.POST.get(f'q{ans.id}')
-                selected = q.choices.filter(pk=choice_id).first() if choice_id else None
-                is_correct = bool(selected and selected.is_correct)
-                ans.selected_choice = selected
-                ans.is_correct = is_correct
-                ans.points_earned = q.points if is_correct else 0
-            else:
-                text_val = request.POST.get(f'q{ans.id}', '').strip()
-                is_correct = _grade_text_answer(q, text_val)
-                ans.text_answer = text_val
-                ans.is_correct = is_correct
-                ans.points_earned = q.points if is_correct else 0
-            ans.save()
-            total_score += ans.points_earned
-
-        attempt.score = total_score
-        attempt.submitted_at = timezone.now()
-        attempt.save()
-        return redirect('classroom_quiz_result', attempt_pk=attempt.pk)
-
-    return render(request, 'reanBio/classroom_quiz_take.html', {'attempt': attempt, 'answers': answers})
-
-
-@login_required
-def classroom_quiz_result_view(request, attempt_pk):
-    attempt = get_object_or_404(ClassroomQuizAttempt, pk=attempt_pk, user=request.user)
-    answers = (
-        attempt.answers.select_related('question', 'selected_choice')
-        .prefetch_related('question__choices')
-        .order_by('order')
-    )
-    return render(request, 'reanBio/classroom_quiz_result.html', {'attempt': attempt, 'answers': answers})
-
-
-@login_required
-def classroom_quiz_attempts_view(request, quiz_pk):
-    """หน้ารายชื่อคนที่ทำแบบทดสอบนี้แล้ว พร้อมคะแนน สำหรับคุณครูตรวจสอบ"""
-    quiz = get_object_or_404(ClassroomQuiz, pk=quiz_pk)
-    if not _can_manage_classroom(request.user, quiz.classroom):
-        return redirect('classroom_detail', code=quiz.classroom.code)
-
-    attempts = (
-        quiz.attempts.filter(submitted_at__isnull=False)
-        .select_related('user')
-        .order_by('-submitted_at')
-    )
-    return render(request, 'reanBio/classroom_quiz_attempts.html', {'quiz': quiz, 'attempts': attempts})
-
-
-@login_required
-def classroom_quiz_export_view(request, quiz_pk):
-    """ส่งออกผลคะแนนของแบบทดสอบนี้เป็นไฟล์ CSV (เปิดหรืออิมพอร์ตเข้า Google Sheets/Excel ได้ทันที)"""
-    quiz = get_object_or_404(ClassroomQuiz, pk=quiz_pk)
-    if not _can_manage_classroom(request.user, quiz.classroom):
-        return redirect('classroom_detail', code=quiz.classroom.code)
-
-    attempts = (
-        quiz.attempts.filter(submitted_at__isnull=False)
-        .select_related('user')
-        .order_by('-submitted_at')
-    )
-
-    safe_title = "".join(c for c in quiz.title if c.isalnum() or c in (" ", "_", "-")).strip() or "quiz"
-    response = HttpResponse(content_type='text/csv; charset=utf-8')
-    response['Content-Disposition'] = f'attachment; filename="{safe_title}_results.csv"'
-    response.write('﻿')  # BOM ให้โปรแกรมอย่าง Excel อ่านภาษาไทยถูกต้อง
-
-    writer = csv.writer(response)
-    writer.writerow(['ชื่อ-นามสกุล', 'ชั้น', 'เลขที่', 'ชื่อผู้ใช้', 'คะแนนที่ได้', 'คะแนนเต็ม', 'เปอร์เซ็นต์', 'วันเวลาที่ส่งคำตอบ'])
-    for attempt in attempts:
-        display_name = attempt.student_name or attempt.user.first_name or attempt.user.username
-        writer.writerow([
-            display_name,
-            attempt.student_class,
-            attempt.student_number,
-            attempt.user.username,
-            attempt.score,
-            attempt.max_score,
-            attempt.percent,
-            attempt.submitted_at.strftime('%d/%m/%Y %H:%M'),
-        ])
-    return response
-
-
-# 📌 แปลงแถวประวัติการเข้าชม (LessonView) ให้เป็น dict ที่มีหน้าตาเดียวกันสำหรับทุกประเภทกิจกรรม
-# เพื่อให้เทมเพลตแสดงผลบทเรียน / การ์ดคำศัพท์ ในตารางเดียวกันได้ง่ายๆ
-def _build_recent_views(user):
-    rows = LessonView.objects.filter(user=user).select_related('lesson', 'flashcard_deck')[:10]
-    items = []
-    for v in rows:
-        if v.activity_type == 'flashcard_bank':
-            items.append({
-                'icon': '🗂️',
-                'title': 'การ์ดคำศัพท์ (คลังกลาง)',
-                'subtitle': v.label or 'ทุกระดับชั้น',
-                'url': f"{reverse('flashcards')}?tab=bank",
-                'viewed_at': v.viewed_at,
-            })
-        elif v.activity_type == 'flashcard_deck':
-            deck_title = v.flashcard_deck.title if v.flashcard_deck else (v.label or 'ชุดการ์ดที่ถูกลบไปแล้ว')
-            items.append({
-                'icon': '🗃️',
-                'title': deck_title,
-                'subtitle': 'การ์ดของฉัน',
-                'url': reverse('flashcard_deck_detail', kwargs={'deck_pk': v.flashcard_deck.pk}) if v.flashcard_deck else f"{reverse('flashcards')}?tab=mine",
-                'viewed_at': v.viewed_at,
-            })
-        elif v.lesson:  # activity_type == 'lesson' (ค่าเริ่มต้น รวมถึงข้อมูลเก่าก่อนมีคอลัมน์นี้)
-            items.append({
-                'icon': '📖',
-                'title': v.lesson.title,
-                'subtitle': f"{v.lesson.get_grade_display()} · บทที่ {v.lesson.chapter}",
-                'url': reverse('lesson_detail', kwargs={'pk': v.lesson.pk}),
-                'viewed_at': v.viewed_at,
-            })
-    return items
-
-
-# 📌 สร้างรายการคลิปวิดีโอห้องเรียนที่นักเรียนเคยกดเข้าไปดู ไว้แสดงในแท็บ "วิดีโอที่เรียน" ของหน้าโปรไฟล์ (แยกจากแท็บ "เข้าชมล่าสุด")
-def _build_video_views(user):
-    rows = (
-        LessonView.objects
-        .filter(user=user, activity_type='classroom_video', classroom_video__isnull=False)
-        .select_related('classroom_video', 'classroom_video__classroom')[:20]
-    )
-    items = []
-    for v in rows:
-        video = v.classroom_video
-        items.append({
-            'title': video.title,
-            'classroom_name': video.classroom.name,
-            'url': reverse('classroom_video_watch', kwargs={'code': video.classroom.code, 'video_pk': video.pk}),
-            'viewed_at': v.viewed_at,
-        })
-    return items
-
-
-@login_required
-def profile(request):
-    try:
-        user_profile = UserProfile.objects.get(user=request.user)
-    except UserProfile.DoesNotExist:
-        user_profile = None
-
-    # แยกการดึงข้อมูลห้องเรียนตามบทบาทผู้ใช้
-    is_teacher = getattr(request.user, 'is_teacher', False)
-    if is_teacher:
-        classrooms = Classroom.objects.filter(teacher=request.user).order_by('-created_at')
-    else:
-        classrooms = request.user.joined_classrooms.all().order_by('-created_at')
-
-    context = {
-        'profile': user_profile,
-        'classrooms': classrooms,
-        # 📌 แท็บ "เข้าชมล่าสุด": บทเรียน / การ์ดคำศัพท์ ที่เปิดดูล่าสุด (บันทึกไว้ตอนเข้าแต่ละหน้า)
-        'recent_views': _build_recent_views(request.user),
-        # 📌 แท็บ "วิดีโอที่เรียน": คลิปวิดีโอห้องเรียนที่เคยกดเข้าไปดู
-        'video_views': _build_video_views(request.user),
-    }
-    # 📌 แท็บ "แดชบอร์ด" ในหน้าโปรไฟล์: สรุปคะแนนแบบฝึกหัด/ข้อสอบ (เฉพาะนักเรียน คุณครูมีแดชบอร์ดห้องเรียนแยกต่างหาก)
-    if not is_teacher:
-        context.update(_dashboard_context(request.user))
-
-    return render(request, 'reanBio/profile.html', context)
-
-@login_required
-def my_classroom_view(request):
-    # 🛑 ถ้าเป็นคุณครู ให้เด้งไปหน้าแดชบอร์ดสร้าง/จัดการห้องเรียนทันที
-    if getattr(request.user, 'is_teacher', False):
-        return redirect('teacher_dashboard')
-
-    joined_classrooms = request.user.joined_classrooms.all().order_by('-created_at')
-    return render(request, 'reanBio/my_classrooms.html', {'classrooms': joined_classrooms})
-
 def lesson_detail_view(request, pk):
-    lesson = get_object_or_404(Lesson, pk=pk)
+    lesson = get_mock_lesson(pk) or get_mock_lessons(subject='bio')[0]
     search_query = request.GET.get('q', '').strip()
-    checkpoints = list(lesson.checkpoints.prefetch_related('choices').all())
+    checkpoints = lesson.checkpoints.all()
     content_html = _render_content_html(lesson.content, search_query, checkpoints)
-    # 📌 คุณครูใช้หน้านี้เพื่ออ่านเนื้อหาเท่านั้น ไม่มีสิทธิ์ทำแบบฝึกหัด/ข้อสอบ (นั่นเป็นของนักเรียน)
-    is_teacher = request.user.is_authenticated and getattr(request.user, 'is_teacher', False)
+    is_teacher = getattr(request.user, 'is_teacher', False)
 
-    # 📌 บันทึกการเข้าชมบทเรียนนี้เป็นแถวใหม่เสมอ (ไม่ทับของเดิม) ไว้แสดงประวัติในแท็บ "เข้าชมล่าสุด" ของหน้าโปรไฟล์
-    if request.user.is_authenticated:
-        LessonView.objects.create(user=request.user, activity_type='lesson', lesson=lesson)
-
-    # 📌 กล่อง "ถาม AI เกี่ยวกับบทเรียนนี้" ฝังอยู่ในหน้านี้ (ต้องล็อกอินก่อนถึงจะถามได้)
     ai_question = ''
     ai_answer = ''
     ai_error = ''
-    if request.method == 'POST' and request.user.is_authenticated:
+    if request.method == 'POST':
         ai_question = request.POST.get('ai_question', '').strip()
         try:
             ai_answer = ask_biology_ai(ai_question, lesson=lesson)
@@ -872,473 +328,398 @@ def lesson_detail_view(request, pk):
 
 
 # ============================================================
-# 📌 5. ระบบแบบฝึกหัด / ข้อสอบ / เก็บคะแนน
+# 📌 4. หน้าโปรไฟล์ & แดชบอร์ดจำลอง
 # ============================================================
 
-def _grade_text_answer(question, raw_answer):
-    """ตรวจคำตอบแบบอัตนัยแบบผ่อนปรน: เทียบคำสำคัญแบบไม่สนตัวพิมพ์เล็ก-ใหญ่และช่องว่างส่วนเกิน"""
-    normalized = " ".join((raw_answer or "").strip().lower().split())
-    if not normalized:
-        return False
-    for accepted in (question.accepted_answers or []):
-        acc_norm = " ".join(str(accepted).strip().lower().split())
-        if acc_norm and (acc_norm in normalized or normalized in acc_norm):
-            return True
-    return False
-
-
-@login_required
-def lesson_exercise_view(request, pk):
-    """หน้าภาพรวมแบบฝึกหัดของบทเรียนหนึ่งๆ พร้อมประวัติการทำของผู้ใช้ และปุ่มเริ่มทำข้อสอบของหัวข้อนี้"""
-    lesson = get_object_or_404(Lesson, pk=pk)
-    # 🛑 คุณครูไม่มีสิทธิ์ทำแบบฝึกหัด/ข้อสอบ (ใช้บทเรียนสำหรับอ่านเนื้อหาเท่านั้น)
-    if getattr(request.user, 'is_teacher', False):
-        messages.info(request, "บทบาทคุณครูใช้สำหรับอ่านเนื้อหาบทเรียนเท่านั้น ไม่มีการทำแบบฝึกหัด/ข้อสอบ")
-        return redirect('lesson_detail', pk=lesson.pk)
-    questions = list(lesson.questions.all())
-    history = Attempt.objects.filter(
-        user=request.user, lesson=lesson, mode='practice', submitted_at__isnull=False
-    ).order_by('-submitted_at')
-
-    # 📌 ข้อสอบสุ่มคำถามจากคลังของ "บทเรียนนี้" (หัวข้อย่อยนี้) เท่านั้น ไม่ผสมกับหัวข้อย่อยอื่นในบทเดียวกัน
-    # เพื่อให้ประวัติการทำข้อสอบของแต่ละหัวข้อย่อยแยกจากกันชัดเจน ไม่ไปโผล่ซ้ำในหน้าหัวข้ออื่น
-    exam_pool_count = len(questions)
-    exam_history = Attempt.objects.filter(
-        user=request.user, mode='exam', lesson=lesson, submitted_at__isnull=False
-    ).order_by('-submitted_at')
-
-    return render(request, 'reanBio/lesson_exercise.html', {
-        'lesson': lesson,
-        'question_count': len(questions),
-        'history': history,
-        'exam_pool_count': exam_pool_count,
-        'exam_history': exam_history,
-    })
-
-
-@login_required
-def start_practice_attempt(request, pk):
-    lesson = get_object_or_404(Lesson, pk=pk)
-    if getattr(request.user, 'is_teacher', False):
-        messages.info(request, "บทบาทคุณครูใช้สำหรับอ่านเนื้อหาบทเรียนเท่านั้น ไม่มีการทำแบบฝึกหัด/ข้อสอบ")
-        return redirect('lesson_detail', pk=lesson.pk)
-    questions = list(lesson.questions.all())
-    if not questions:
-        messages.info(request, "บทเรียนนี้ยังไม่มีแบบฝึกหัด")
-        return redirect('lesson_detail', pk=lesson.pk)
-
-    attempt = Attempt.objects.create(
-        user=request.user, mode='practice', lesson=lesson,
-        max_score=sum(q.points for q in questions),
-    )
-    for i, q in enumerate(questions, start=1):
-        AttemptAnswer.objects.create(attempt=attempt, question=q, order=i)
-
-    return redirect('attempt_take', attempt_pk=attempt.pk)
-
-
-def _create_exam_attempt(user, lesson, num_questions):
-    """สุ่มคำถามจากคลังข้อสอบของ 'บทเรียนนี้' (หัวข้อย่อยนี้) เท่านั้น แล้วสร้าง Attempt แบบข้อสอบ
-    คืนค่า Attempt หรือ None ถ้าไม่มีคำถามเลย"""
-    pool = list(lesson.questions.all())
-    if not pool:
-        return None
-
-    num_questions = max(1, min(num_questions, len(pool)))
-    selected = random.sample(pool, num_questions)
-
-    attempt = Attempt.objects.create(
-        user=user, mode='exam', lesson=lesson, grade=lesson.grade, chapter=lesson.chapter,
-        max_score=sum(q.points for q in selected),
-    )
-    for i, q in enumerate(selected, start=1):
-        AttemptAnswer.objects.create(attempt=attempt, question=q, order=i)
-    return attempt
-
-
-@login_required
-def start_lesson_exam(request, pk):
-    """เริ่มทำข้อสอบแบบสุ่มจากคำถามของบทเรียน (หัวข้อย่อย) นี้เท่านั้น ริเริ่มจากหน้าบทเรียนโดยตรง"""
-    lesson = get_object_or_404(Lesson, pk=pk)
-    if getattr(request.user, 'is_teacher', False):
-        messages.info(request, "บทบาทคุณครูใช้สำหรับอ่านเนื้อหาบทเรียนเท่านั้น ไม่มีการทำแบบฝึกหัด/ข้อสอบ")
-        return redirect('lesson_detail', pk=lesson.pk)
-    try:
-        num_questions = int(request.POST.get('num_questions', 10))
-    except ValueError:
-        num_questions = 10
-
-    attempt = _create_exam_attempt(request.user, lesson, num_questions)
-    if attempt is None:
-        messages.error(request, "หัวข้อนี้ยังไม่มีคำถามในคลังข้อสอบ")
-        return redirect('lesson_exercise', pk=lesson.pk)
-
-    return redirect('attempt_take', attempt_pk=attempt.pk)
-
-
-# ============================================================
-# 📌 ควิซอัจฉริยะ (AI Quiz Generator): สุ่มข้อสอบข้ามบทเรียน ตามระดับชั้น/บทที่ที่เลือก
-# ============================================================
-def _create_multi_lesson_exam_attempt(user, grade, chapter, num_questions):
-    """สุ่มคำถามข้ามบทเรียนตามเงื่อนไขระดับชั้น/บทที่ที่เลือก แล้วสร้าง Attempt แบบข้อสอบรวม
-    (ไม่ผูกกับบทเรียนเดียว lesson=None) คืนค่า Attempt หรือ None ถ้าไม่พบคำถามในขอบเขตที่เลือก"""
-    pool = Question.objects.select_related('lesson').filter(lesson__subject='bio')
-    if grade in ['m4', 'm5', 'm6']:
-        pool = pool.filter(lesson__grade=grade)
-    if chapter:
-        pool = pool.filter(lesson__chapter=chapter)
-    pool = list(pool)
-    if not pool:
-        return None
-
-    num_questions = max(1, min(num_questions, len(pool)))
-    selected = random.sample(pool, num_questions)
-
-    attempt = Attempt.objects.create(
-        user=user, mode='exam',
-        grade=grade if grade in ['m4', 'm5', 'm6'] else '',
-        chapter=chapter,
-        max_score=sum(q.points for q in selected),
-    )
-    for i, q in enumerate(selected, start=1):
-        AttemptAnswer.objects.create(attempt=attempt, question=q, order=i)
-    return attempt
-
-
-def quiz_generator_view(request):
-    """หน้าตั้งค่าสร้างแบบทดสอบอัตโนมัติ: เลือกระดับชั้น/บทที่/จำนวนข้อ แล้วสุ่มคำถามข้ามบทเรียนให้ทันที"""
-    return render(request, 'reanBio/quiz_generator.html', {
-        'chapters_by_grade_json': json.dumps(_chapters_by_grade()),
-        'total_questions': Question.objects.filter(lesson__subject='bio').count(),
-    })
-
-
-@login_required
-def start_generated_quiz(request):
-    if request.method != 'POST':
-        return redirect('quiz_generator')
-    if getattr(request.user, 'is_teacher', False):
-        messages.info(request, "บทบาทคุณครูใช้สำหรับอ่านเนื้อหาบทเรียนเท่านั้น ไม่มีการทำแบบฝึกหัด/ข้อสอบ")
-        return redirect('quiz_generator')
-
-    grade = request.POST.get('grade', 'all')
-    chapter_raw = request.POST.get('chapter', '').strip()
-    chapter = int(chapter_raw) if chapter_raw.isdigit() else None
-    try:
-        num_questions = int(request.POST.get('num_questions', 10))
-    except ValueError:
-        num_questions = 10
-
-    attempt = _create_multi_lesson_exam_attempt(request.user, grade, chapter, num_questions)
-    if attempt is None:
-        messages.error(request, "ไม่พบคำถามในขอบเขตที่เลือก กรุณาเลือกระดับชั้น/บทที่ใหม่")
-        return redirect('quiz_generator')
-
-    return redirect('attempt_take', attempt_pk=attempt.pk)
-
-
-# 📌 การ์ดคำศัพท์ของนักเรียนเอง (ส่วนตัวเฉพาะคนสร้าง คนอื่นมองไม่เห็น)
-# รายการชุดการ์ด + ฟอร์มสร้างชุดใหม่ ถูกรวมแสดงในแท็บ "การ์ดของฉัน" ที่หน้า flashcards_view แล้ว
-# view นี้จึงเหลือหน้าที่หลักคือรับ POST สร้างชุดการ์ดใหม่ (GET จะเด้งกลับไปหน้าการ์ดคำศัพท์แท็บนี้)
-@login_required
-def my_flashcards_view(request):
-    if getattr(request.user, 'is_teacher', False):
-        messages.info(request, "บทบาทคุณครูใช้สำหรับอ่านเนื้อหาบทเรียนเท่านั้น ไม่มีการสร้างการ์ดคำศัพท์ส่วนตัว")
-        return redirect('home')
-
-    if request.method == 'POST':
-        title = request.POST.get('title', '').strip()
-        if not title:
-            messages.error(request, 'กรุณาตั้งชื่อชุดการ์ดก่อน')
-            return redirect(f"{reverse('flashcards')}?tab=mine")
-        deck = FlashcardDeck.objects.create(owner=request.user, title=title)
-        return redirect('flashcard_deck_detail', deck_pk=deck.pk)
-
-    return redirect(f"{reverse('flashcards')}?tab=mine")
-
-
-@login_required
-def flashcard_deck_detail_view(request, deck_pk):
-    """หน้าจัดการการ์ดในชุดเดียว: เพิ่มการ์ดใหม่ + ดูรายการการ์ดทั้งหมดในชุดนี้"""
-    deck = get_object_or_404(FlashcardDeck, pk=deck_pk, owner=request.user)
-
-    if request.method == 'POST':
-        front = request.POST.get('front', '').strip()
-        back = request.POST.get('back', '').strip()
-        if not front or not back:
-            messages.error(request, 'กรุณากรอกทั้งด้านหน้าและด้านหลังของการ์ด')
-        else:
-            next_order = deck.cards.count() + 1
-            Flashcard.objects.create(deck=deck, front=front, back=back, order=next_order)
-            return redirect('flashcard_deck_detail', deck_pk=deck.pk)
-    else:
-        # 📌 บันทึกการเปิดชุดการ์ดนี้ (เฉพาะตอนเข้ามาดู ไม่นับตอนส่งฟอร์มเพิ่มการ์ด) ไว้แสดงประวัติในแท็บ "เข้าชมล่าสุด"
-        LessonView.objects.create(user=request.user, activity_type='flashcard_deck', flashcard_deck=deck, label=deck.title)
-
-    return render(request, 'reanBio/flashcard_deck_detail.html', {'deck': deck, 'cards': deck.cards.all()})
-
-
-@login_required
-def flashcard_deck_delete_view(request, deck_pk):
-    deck = get_object_or_404(FlashcardDeck, pk=deck_pk, owner=request.user)
-    if request.method == 'POST':
-        deck.delete()
-        messages.success(request, 'ลบชุดการ์ดเรียบร้อยแล้ว')
-    return redirect(f"{reverse('flashcards')}?tab=mine")
-
-
-@login_required
-def flashcard_card_delete_view(request, card_pk):
-    card = get_object_or_404(Flashcard, pk=card_pk, deck__owner=request.user)
-    deck_pk = card.deck_id
-    if request.method == 'POST':
-        card.delete()
-    return redirect('flashcard_deck_detail', deck_pk=deck_pk)
-
-
-@login_required
-def flashcard_deck_study_view(request, deck_pk):
-    """โหมดพลิกการ์ดทบทวน ใช้รูปแบบเดียวกับหน้าการ์ดคำศัพท์หลัก"""
-    deck = get_object_or_404(FlashcardDeck, pk=deck_pk, owner=request.user)
-    cards = [{'front': c.front, 'back': c.back} for c in deck.cards.all()]
-
-    # 📌 บันทึกการทบทวนชุดการ์ดนี้ ไว้แสดงประวัติในแท็บ "เข้าชมล่าสุด" ของหน้าโปรไฟล์
-    LessonView.objects.create(user=request.user, activity_type='flashcard_deck', flashcard_deck=deck, label=deck.title)
-
-    return render(request, 'reanBio/flashcard_deck_study.html', {
-        'deck': deck,
-        'cards_json': json.dumps(cards, ensure_ascii=False),
-        'card_count': len(cards),
-    })
-
-
-@login_required
-def attempt_take_view(request, attempt_pk):
-    attempt = get_object_or_404(Attempt, pk=attempt_pk, user=request.user)
-    if attempt.submitted_at:
-        return redirect('attempt_result', attempt_pk=attempt.pk)
-
-    answers = list(
-        attempt.answers.select_related('question')
-        .prefetch_related('question__choices')
-        .order_by('order')
-    )
-
-    if request.method == 'POST':
-        total_score = 0
-        for ans in answers:
-            q = ans.question
-            if q.question_type == 'mcq':
-                choice_id = request.POST.get(f'q{ans.id}')
-                selected = q.choices.filter(pk=choice_id).first() if choice_id else None
-                is_correct = bool(selected and selected.is_correct)
-                ans.selected_choice = selected
-                ans.is_correct = is_correct
-                ans.points_earned = q.points if is_correct else 0
-            else:
-                text_val = request.POST.get(f'q{ans.id}', '').strip()
-                is_correct = _grade_text_answer(q, text_val)
-                ans.text_answer = text_val
-                ans.is_correct = is_correct
-                ans.points_earned = q.points if is_correct else 0
-            ans.save()
-            total_score += ans.points_earned
-
-        attempt.score = total_score
-        attempt.submitted_at = timezone.now()
-        attempt.save()
-        return redirect('attempt_result', attempt_pk=attempt.pk)
-
-    return render(request, 'reanBio/attempt_take.html', {'attempt': attempt, 'answers': answers})
-
-
-@login_required
-def attempt_result_view(request, attempt_pk):
-    attempt = get_object_or_404(Attempt, pk=attempt_pk, user=request.user)
-    answers = (
-        attempt.answers.select_related('question', 'selected_choice')
-        .prefetch_related('question__choices')
-        .order_by('order')
-    )
-
-    # สำหรับผลข้อสอบ (exam mode): หาบทเรียนของหัวข้อนั้นๆ เพื่อใช้เป็นทางลัดกลับไป "ทำข้อสอบอีกครั้ง"
-    # (ข้อสอบผูกกับบทเรียนโดยตรงอยู่แล้ว ยกเว้นข้อสอบรุ่นเก่าก่อนเปลี่ยนมาผูกกับหัวข้อย่อยที่ยังไม่ถูก backfill)
-    retake_lesson = None
-    if attempt.mode == 'exam':
-        if attempt.lesson:
-            retake_lesson = attempt.lesson
-        else:
-            lessons_qs = Lesson.objects.filter(grade=attempt.grade or 'm4')
-            if attempt.chapter:
-                lessons_qs = lessons_qs.filter(chapter=attempt.chapter)
-            retake_lesson = lessons_qs.first()
-
-    return render(request, 'reanBio/attempt_result.html', {
-        'attempt': attempt,
-        'answers': answers,
-        'retake_lesson': retake_lesson,
-        'retake_num_questions': answers.count(),
-    })
-
-
-def _dashboard_context(user):
-    """สรุปประวัติคะแนนแบบฝึกหัด/ข้อสอบของผู้ใช้ สำหรับแสดงในแท็บ 'แดชบอร์ด' ของหน้าโปรไฟล์"""
-    attempts = list(
-        Attempt.objects.filter(user=user, submitted_at__isnull=False)
-        .select_related('lesson')
-        .order_by('submitted_at')
-    )
-    practice_attempts = [a for a in attempts if a.mode == 'practice']
-    exam_attempts = [a for a in attempts if a.mode == 'exam']
-
-    def label_for(a):
-        if a.lesson:
-            return str(a.lesson.title)
-        if a.chapter:
-            return f"ข้อสอบบทที่ {a.chapter}"
-        return "ข้อสอบรวม"
-
-    def series(qs):
-        return [
-            {
-                'date': a.submitted_at.strftime('%d/%m/%y %H:%M'),
-                'percent': a.percent,
-                'label': label_for(a),
-            }
-            for a in qs
-        ]
-
-    def trend(qs):
-        if len(qs) < 2:
-            return None
-        mid = max(1, len(qs) // 2)
-        first_half = qs[:mid]
-        second_half = qs[mid:] or qs[-1:]
-        avg1 = sum(a.percent for a in first_half) / len(first_half)
-        avg2 = sum(a.percent for a in second_half) / len(second_half)
-        return round(avg2 - avg1, 1)
-
-    # 📌 คะแนนรวมถ่วงน้ำหนักแบบ GPA: ใช้คะแนนข้อสอบ "ล่าสุด" ของแต่ละหัวข้อย่อย คูณน้ำหนัก (credit_weight)
-    # ของหัวข้อนั้น แล้วหารด้วยผลรวมน้ำหนัก เหมือนเกรดเฉลี่ยที่แต่ละวิชามีหน่วยกิตไม่เท่ากัน
-    latest_exam_by_lesson = {}
-    for a in exam_attempts:  # exam_attempts เรียงจากเก่า -> ใหม่อยู่แล้ว ตัวหลังจะทับตัวก่อนหน้า เหลือแค่ครั้งล่าสุด
-        if a.lesson_id:
-            latest_exam_by_lesson[a.lesson_id] = a
+def profile(request):
+    bio_lessons = get_mock_lessons(subject='bio')
+    practice_list = [a for a in MOCK_ATTEMPTS.values() if a.mode == 'practice']
+    exam_list = [a for a in MOCK_ATTEMPTS.values() if a.mode == 'exam']
 
     weighted_rows = []
-    total_weight = 0.0
-    weighted_sum = 0.0
-    for a in latest_exam_by_lesson.values():
-        weight = a.lesson.credit_weight
+    for idx, l in enumerate(bio_lessons[:3], start=1):
         weighted_rows.append({
-            'lesson': a.lesson,
-            'percent': a.percent,
-            'weight': weight,
-            'submitted_at': a.submitted_at,
-            'attempt_pk': a.pk,
+            'lesson': l,
+            'weight': l.credit_weight,
+            'percent': 85.0 if idx % 2 else 90.0,
+            'attempt_pk': 2 if 2 in MOCK_ATTEMPTS else 1,
         })
-        total_weight += weight
-        weighted_sum += a.percent * weight
-    weighted_rows.sort(key=lambda r: (r['lesson'].chapter, r['lesson'].subtopic_code))
-    weighted_overall = round(weighted_sum / total_weight, 1) if total_weight else None
 
-    return {
-        'practice_attempts': list(reversed(practice_attempts)),
-        'exam_attempts': list(reversed(exam_attempts)),
-        'practice_series': series(practice_attempts),
-        'exam_series': series(exam_attempts),
-        'practice_trend': trend(practice_attempts),
-        'exam_trend': trend(exam_attempts),
-        'total_attempts': len(attempts),
-        'weighted_overall': weighted_overall,
+    practice_series = [
+        {'date': '18/09', 'percent': 70, 'label': 'ธรรมชาติของสิ่งมีชีวิต'},
+        {'date': '20/09', 'percent': 85, 'label': 'เคมีที่เป็นพื้นฐานของสิ่งมีชีวิต'},
+        {'date': '22/09', 'percent': 95, 'label': 'เซลล์ของสิ่งมีชีวิต'},
+    ]
+    exam_series = [
+        {'date': '19/09', 'percent': 75, 'label': 'บทที่ 1 การศึกษาชีววิทยา'},
+        {'date': '23/09', 'percent': 88, 'label': 'บทที่ 1 การศึกษาชีววิทยา'},
+    ]
+
+    video_views = [
+        {
+            'title': 'สรุปโครงสร้างและหน้าที่ของออร์แกเนลล์ในเซลล์ (3D Animation)',
+            'classroom_name': MOCK_CLASSROOMS[0].name,
+            'viewed_at': datetime(2026, 9, 22, 16, 30),
+            'url': reverse('classroom_video_watch', kwargs={'code': MOCK_CLASSROOMS[0].code, 'video_pk': 1}),
+        }
+    ]
+    recent_views = [
+        {
+            'icon': '📘',
+            'title': bio_lessons[0].title if bio_lessons else 'บทเรียนชีววิทยา',
+            'subtitle': 'เปิดอ่านบทเรียน ม.4 · บทที่ 1',
+            'viewed_at': datetime(2026, 9, 23, 10, 15),
+            'url': reverse('lesson_detail', kwargs={'pk': bio_lessons[0].pk if bio_lessons else 1}),
+        },
+        {
+            'icon': '🗂️',
+            'title': 'การ์ดคำศัพท์คลังกลาง',
+            'subtitle': 'ทบทวนคำศัพท์ออร์แกเนลล์ ม.4',
+            'viewed_at': datetime(2026, 9, 22, 19, 40),
+            'url': reverse('flashcards'),
+        },
+    ]
+
+    return render(request, 'reanBio/profile.html', {
+        'classrooms': MOCK_CLASSROOMS,
+        'video_views': video_views,
+        'recent_views': recent_views,
+        'total_attempts': len(MOCK_ATTEMPTS),
+        'weighted_overall': 87.5,
+        'weighted_total': 3.5,
         'weighted_rows': weighted_rows,
-        'weighted_total': round(total_weight, 1) if total_weight else None,
-    }
+        'practice_trend': 15.0,
+        'exam_trend': 13.0,
+        'practice_series': json.dumps(practice_series, ensure_ascii=False),
+        'exam_series': json.dumps(exam_series, ensure_ascii=False),
+        'practice_attempts': practice_list,
+        'exam_attempts': exam_list,
+    })
 
 
-@login_required
-def exercise_pdf_view(request, pk):
-    """สร้างไฟล์ PDF ของแบบฝึกหัดในบทเรียนนี้ (ไม่เฉลย) สำหรับพิมพ์ไปทำบนกระดาษ"""
-    lesson = get_object_or_404(Lesson, pk=pk)
-    questions = list(lesson.questions.prefetch_related('choices').all())
-    if not questions:
-        raise Http404("บทเรียนนี้ยังไม่มีแบบฝึกหัด")
+# ============================================================
+# 📌 5. ห้องเรียนของนักเรียน & แดชบอร์ดคุณครู (Mockup)
+# ============================================================
 
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import cm
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.pdfgen import canvas
+def my_classroom_view(request):
+    if getattr(request.user, 'is_teacher', False):
+        return redirect('teacher_dashboard')
+    return render(request, 'reanBio/my_classrooms.html', {'classrooms': MOCK_CLASSROOMS})
 
-    font_dir = os.path.join(os.path.dirname(__file__), 'static', 'reanBio', 'fonts')
-    if 'Waree' not in pdfmetrics.getRegisteredFontNames():
-        pdfmetrics.registerFont(TTFont('Waree', os.path.join(font_dir, 'Waree.ttf')))
-        pdfmetrics.registerFont(TTFont('Waree-Bold', os.path.join(font_dir, 'Waree-Bold.ttf')))
 
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="exercise_{lesson.pk}.pdf"'
+def join_classroom_view(request):
+    code = (request.POST.get('code') or request.GET.get('code') or 'BIO101').strip().upper()
+    messages.success(request, f"เข้าร่วมห้องเรียนรหัส {code} (โหมด Mockup) เรียบร้อยแล้ว!")
+    return redirect('classroom_detail', code=code)
 
-    p = canvas.Canvas(response, pagesize=A4)
-    width, height = A4
-    margin = 2 * cm
-    bottom_limit = 2.2 * cm
-    y = height - margin
 
-    def wrap_text(text, font, size, max_width):
-        lines = []
-        current = ""
-        for ch in text:
-            test = current + ch
-            if pdfmetrics.stringWidth(test, font, size) > max_width and current:
-                lines.append(current)
-                current = ch
-            else:
-                current = test
-        if current:
-            lines.append(current)
-        return lines or [""]
+def teacher_dashboard_view(request):
+    if request.method == 'POST':
+        messages.success(request, "จำลองการสร้างห้องเรียนใหม่ (โหมด Mockup) เรียบร้อยแล้ว!")
+    return render(request, 'reanBio/teacher_dashboard.html', {'classrooms': MOCK_CLASSROOMS})
 
-    def draw_wrapped(text, x, start_y, font, size, max_width, leading):
-        cur_y = start_y
-        for line in wrap_text(text, font, size, max_width):
-            if cur_y < bottom_limit:
-                p.showPage()
-                cur_y = height - margin
-            p.setFont(font, size)
-            p.drawString(x, cur_y, line)
-            cur_y -= leading
-        return cur_y
 
-    p.setFont('Waree-Bold', 16)
-    p.drawCentredString(width / 2, y, f"แบบฝึกหัด: {lesson.title}")
-    y -= 0.9 * cm
-    p.setFont('Waree', 10)
-    p.drawString(margin, y, "ชื่อ-นามสกุล: ..........................................  เลขที่: ..........  วันที่: ..........")
-    y -= 1.0 * cm
+def classroom_detail_view(request, code):
+    room = get_mock_classroom(code)
+    return render(request, 'reanBio/classroom_detail.html', {
+        'classroom': room,
+        'is_owner': getattr(request.user, 'is_teacher', False),
+        'videos': room.videos.all(),
+        'files': room.files.all(),
+        'quizzes': room.quizzes.all(),
+    })
 
-    content_width = width - 2 * margin
-    for idx, q in enumerate(questions, start=1):
-        if y < bottom_limit + 1.5 * cm:
-            p.showPage()
-            y = height - margin
-        y = draw_wrapped(f"{idx}. {q.text}", margin, y, 'Waree-Bold', 11, content_width, 0.55 * cm)
-        y -= 0.15 * cm
 
-        if q.question_type == 'mcq':
-            letters = "กขคงจฉชซ"
-            for c_idx, choice in enumerate(q.choices.all()):
-                letter = letters[c_idx] if c_idx < len(letters) else str(c_idx + 1)
-                y = draw_wrapped(f"   {letter}. {choice.text}", margin, y, 'Waree', 10, content_width, 0.5 * cm)
-        else:
-            p.setFont('Waree', 10)
-            for _ in range(3):
-                if y < bottom_limit:
-                    p.showPage()
-                    y = height - margin
-                p.line(margin, y, width - margin, y)
-                y -= 0.85 * cm
+def classroom_edit_view(request, code):
+    room = get_mock_classroom(code)
+    if request.method == 'POST':
+        new_name = request.POST.get('name', '').strip()
+        if new_name:
+            room.name = new_name
+        messages.success(request, f"อัปเดตชื่อห้องเรียนเป็น '{room.name}' (Mockup) เรียบร้อยแล้ว")
+        return redirect('classroom_detail', code=room.code)
+    return render(request, 'reanBio/classroom_edit.html', {'classroom': room})
 
-        y -= 0.35 * cm
 
-    p.save()
+def classroom_delete_view(request, code):
+    room = get_mock_classroom(code)
+    if request.method == 'POST':
+        messages.success(request, f"จำลองการลบห้องเรียน '{room.name}' (Mockup) เรียบร้อยแล้ว")
+        return redirect('teacher_dashboard')
+    return render(request, 'reanBio/classroom_confirm_delete.html', {'classroom': room})
+
+
+def classroom_students_view(request, code):
+    room = get_mock_classroom(code)
+    search_query = request.GET.get('q', '').strip().lower()
+    students = room.students.all()
+    if search_query:
+        students = [
+            s for s in students
+            if search_query in s.username.lower() or search_query in s.userprofile.full_name.lower()
+        ]
+    return render(request, 'reanBio/classroom_students.html', {
+        'classroom': room,
+        'students': students,
+        'total_students': len(room.students),
+        'search_query': request.GET.get('q', '').strip(),
+        'is_owner': True,
+    })
+
+
+def classroom_remove_student_view(request, code, student_pk):
+    room = get_mock_classroom(code)
+    messages.success(request, "จำลองการคัดนักเรียนออกจากห้องเรียน (Mockup) เรียบร้อยแล้ว")
+    return redirect('classroom_students', code=room.code)
+
+
+def classroom_students_export_view(request, code):
+    room = get_mock_classroom(code)
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="students_{room.code}.csv"'
+    response.write('\ufeff')
+    writer = csv.writer(response)
+    writer.writerow(['ลำดับ', 'ชื่อผู้ใช้ (Username)', 'ชื่อ-นามสกุล', 'ชั้น', 'เลขที่', 'อีเมล'])
+    for idx, s in enumerate(room.students.all(), start=1):
+        writer.writerow([idx, s.username, s.userprofile.full_name, s.userprofile.student_class, s.userprofile.student_number, s.email])
     return response
+
+
+def classroom_video_watch_view(request, code, video_pk):
+    room = get_mock_classroom(code)
+    video = next((v for v in room.videos.all() if v.pk == int(video_pk)), room.videos.first())
+    return render(request, 'reanBio/classroom_video_watch.html', {
+        'classroom': room,
+        'video': video,
+    })
+
+
+def classroom_add_video_view(request, code):
+    room = get_mock_classroom(code)
+    if request.method == 'POST':
+        messages.success(request, "จำลองการเพิ่มคลิปวิดีโอเข้าห้องเรียน (Mockup) เรียบร้อยแล้ว")
+        return redirect('classroom_detail', code=room.code)
+    return render(request, 'reanBio/classroom_add_video.html', {'classroom': room})
+
+
+def classroom_add_file_view(request, code):
+    room = get_mock_classroom(code)
+    if request.method == 'POST':
+        messages.success(request, "จำลองการอัปโหลดไฟล์เอกสารเข้าห้องเรียน (Mockup) เรียบร้อยแล้ว")
+        return redirect('classroom_detail', code=room.code)
+    return render(request, 'reanBio/classroom_add_file.html', {'classroom': room})
+
+
+def classroom_add_quiz_view(request, code):
+    room = get_mock_classroom(code)
+    if request.method == 'POST':
+        messages.success(request, "จำลองการสร้างแบบทดสอบเข้าห้องเรียน (Mockup) เรียบร้อยแล้ว")
+        return redirect('classroom_detail', code=room.code)
+    return render(request, 'reanBio/classroom_add_quiz.html', {'classroom': room})
+
+
+def classroom_quiz_start_view(request, quiz_pk):
+    room = MOCK_CLASSROOMS[0]
+    quiz = room.quizzes.first()
+    if request.method == 'POST':
+        return redirect('classroom_quiz_take', attempt_pk=1)
+    return render(request, 'reanBio/classroom_quiz_prestart.html', {
+        'quiz': quiz,
+        'classroom': room,
+        'initial_name': request.user.userprofile.full_name,
+        'initial_class': request.user.userprofile.student_class,
+        'initial_number': request.user.userprofile.student_number,
+    })
+
+
+def classroom_quiz_take_view(request, attempt_pk):
+    room = MOCK_CLASSROOMS[0]
+    quiz = room.quizzes.first()
+    attempt = quiz.attempts.first()
+    default_att = MOCK_ATTEMPTS.get(1)
+    answers = default_att.answers.all() if default_att else []
+    if request.method == 'POST':
+        return redirect('classroom_quiz_result', attempt_pk=attempt_pk)
+    return render(request, 'reanBio/classroom_quiz_take.html', {
+        'attempt': attempt,
+        'quiz': quiz,
+        'classroom': room,
+        'answers': answers,
+    })
+
+
+def classroom_quiz_result_view(request, attempt_pk):
+    room = MOCK_CLASSROOMS[0]
+    quiz = room.quizzes.first()
+    attempt = quiz.attempts.first()
+    default_att = MOCK_ATTEMPTS.get(1)
+    answers = default_att.answers.all() if default_att else []
+    return render(request, 'reanBio/classroom_quiz_result.html', {
+        'attempt': attempt,
+        'quiz': quiz,
+        'classroom': room,
+        'answers': answers,
+    })
+
+
+def classroom_quiz_attempts_view(request, quiz_pk):
+    room = MOCK_CLASSROOMS[0]
+    quiz = room.quizzes.first()
+    return render(request, 'reanBio/classroom_quiz_attempts.html', {
+        'quiz': quiz,
+        'classroom': room,
+        'attempts': quiz.attempts.all(),
+    })
+
+
+def classroom_quiz_export_view(request, quiz_pk):
+    room = MOCK_CLASSROOMS[0]
+    quiz = room.quizzes.first()
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="quiz_{quiz.pk}_scores.csv"'
+    response.write('\ufeff')
+    writer = csv.writer(response)
+    writer.writerow(['ชื่อ-นามสกุล', 'ชั้น', 'เลขที่', 'คะแนน', 'คะแนนเต็ม', 'เปอร์เซ็นต์'])
+    for a in quiz.attempts.all():
+        writer.writerow([a.student_name, a.student_class, a.student_number, a.score, a.max_score, f"{a.percent}%"])
+    return response
+
+
+# ============================================================
+# 📌 6. การ์ดคำศัพท์ (Flashcards Mockup)
+# ============================================================
+
+def flashcards_view(request):
+    grade_filter = request.GET.get('grade', 'all')
+    chapter_filter = request.GET.get('chapter', '')
+
+    bio_lessons = get_mock_lessons(subject='bio', grade=grade_filter)
+    available_chapters = sorted({l.chapter for l in bio_lessons})
+
+    cards = []
+    for l in bio_lessons:
+        if chapter_filter and str(l.chapter) != str(chapter_filter):
+            continue
+        for q in l.questions.all():
+            correct = next((c.text for c in q.choices.all() if c.is_correct), "")
+            if not correct and q.accepted_answers:
+                correct = ", ".join(q.accepted_answers)
+            back_text = f"คำตอบ: {correct}"
+            if q.explanation:
+                back_text += f"\n\nคำอธิบาย: {q.explanation}"
+            cards.append({
+                'front': q.text,
+                'back': back_text,
+                'lesson': f"{l.get_grade_display()} · {l.title}",
+            })
+
+    return render(request, 'reanBio/flashcards.html', {
+        'cards_json': json.dumps(cards, ensure_ascii=False),
+        'card_count': len(cards),
+        'current_grade': grade_filter,
+        'current_chapter': chapter_filter,
+        'available_chapters': available_chapters,
+        'my_decks': MOCK_FLASHCARD_DECKS,
+        'show_my_decks_tab': not getattr(request.user, 'is_teacher', False),
+    })
+
+
+def my_flashcards_view(request):
+    if request.method == 'POST':
+        messages.success(request, "จำลองการสร้างชุดการ์ดคำศัพท์ใหม่ (Mockup) เรียบร้อยแล้ว!")
+    return redirect(f"{reverse('flashcards')}?tab=mine")
+
+
+def flashcard_deck_detail_view(request, deck_pk):
+    deck = next((d for d in MOCK_FLASHCARD_DECKS if d.pk == int(deck_pk)), MOCK_FLASHCARD_DECKS[0])
+    if request.method == 'POST':
+        messages.success(request, "จำลองการเพิ่มการ์ดคำศัพท์ใหม่ (Mockup) เรียบร้อยแล้ว!")
+    return render(request, 'reanBio/flashcard_deck_detail.html', {
+        'deck': deck,
+        'cards': deck.cards.all(),
+    })
+
+
+def flashcard_deck_delete_view(request, deck_pk):
+    messages.success(request, "จำลองการลบชุดการ์ดคำศัพท์ (Mockup) เรียบร้อยแล้ว!")
+    return redirect(f"{reverse('flashcards')}?tab=mine")
+
+
+def flashcard_deck_study_view(request, deck_pk):
+    deck = next((d for d in MOCK_FLASHCARD_DECKS if d.pk == int(deck_pk)), MOCK_FLASHCARD_DECKS[0])
+    cards_data = [{'front': c.front, 'back': c.back} for c in deck.cards.all()]
+    return render(request, 'reanBio/flashcard_deck_study.html', {
+        'deck': deck,
+        'cards_json': json.dumps(cards_data, ensure_ascii=False),
+        'card_count': len(cards_data),
+    })
+
+
+def flashcard_card_delete_view(request, card_pk):
+    messages.success(request, "จำลองการลบการ์ดคำศัพท์ (Mockup) เรียบร้อยแล้ว!")
+    return redirect('flashcard_deck_detail', deck_pk=1)
+
+
+# ============================================================
+# 📌 7. สร้างแบบทดสอบ & ทำแบบฝึกหัด/ข้อสอบ (Mockup)
+# ============================================================
+
+def quiz_generator_view(request):
+    bio_lessons = get_mock_lessons(subject='bio')
+    total_q = sum(len(l.questions) for l in bio_lessons)
+    chapters_by_grade = {'m4': [1], 'm5': [], 'm6': []}
+    return render(request, 'reanBio/quiz_generator.html', {
+        'total_questions': total_q,
+        'chapters_by_grade_json': json.dumps(chapters_by_grade),
+    })
+
+
+def start_generated_quiz(request):
+    return redirect('attempt_take', attempt_pk=2)
+
+
+def lesson_exercise_view(request, pk):
+    lesson = get_mock_lesson(pk) or get_mock_lessons(subject='bio')[0]
+    q_count = len(lesson.questions)
+    practice_hist = [a for a in MOCK_ATTEMPTS.values() if a.mode == 'practice']
+    exam_hist = [a for a in MOCK_ATTEMPTS.values() if a.mode == 'exam']
+    return render(request, 'reanBio/lesson_exercise.html', {
+        'lesson': lesson,
+        'question_count': q_count,
+        'exam_pool_count': q_count,
+        'history': practice_hist,
+        'exam_history': exam_hist,
+    })
+
+
+def start_practice_attempt(request, pk):
+    return redirect('attempt_take', attempt_pk=1)
+
+
+def start_lesson_exam(request, pk):
+    return redirect('attempt_take', attempt_pk=2)
+
+
+def exercise_pdf_view(request, pk):
+    lesson = get_mock_lesson(pk) or get_mock_lessons(subject='bio')[0]
+    messages.info(request, f"โหมด Mockup: จำลองการดาวน์โหลดไฟล์ PDF แบบฝึกหัด '{lesson.title}'")
+    return redirect('lesson_exercise', pk=lesson.pk)
+
+
+def attempt_take_view(request, attempt_pk):
+    attempt = MOCK_ATTEMPTS.get(int(attempt_pk)) or next(iter(MOCK_ATTEMPTS.values()))
+    if request.method == 'POST':
+        messages.success(request, "ส่งคำตอบเรียบร้อยแล้ว! นี่คือผลคะแนนจำลองของคุณ (Mockup)")
+        return redirect('attempt_result', attempt_pk=attempt.pk)
+    return render(request, 'reanBio/attempt_take.html', {
+        'attempt': attempt,
+        'answers': attempt.answers.all(),
+    })
+
+
+def attempt_result_view(request, attempt_pk):
+    attempt = MOCK_ATTEMPTS.get(int(attempt_pk)) or next(iter(MOCK_ATTEMPTS.values()))
+    return render(request, 'reanBio/attempt_result.html', {
+        'attempt': attempt,
+        'answers': attempt.answers.all(),
+    })

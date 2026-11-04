@@ -9,38 +9,73 @@
     <!-- ส่วนหัวห้องเรียน -->
     <div class="bg-gradient-to-r from-bio-main to-bio-dark text-white p-8 md:p-10 rounded-[35px] shadow-lg space-y-3 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-            <span class="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold">
-                รหัสห้องเรียน: {{ classroom.code }}
-            </span>
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold">
+                    รหัสห้องเรียน: {{ classroom.code }}
+                </span>
+                {% if request.user == classroom.teacher or request.user.is_teacher %}
+                <span class="bg-white/20 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-bold">
+                    นักเรียน: {{ classroom.students.count }} คน
+                </span>
+                {% endif %}
+            </div>
             <h1 class="text-3xl md:text-4xl font-extrabold mt-2">{{ classroom.name }}</h1>
             <p class="text-sm opacity-90 mt-1">
                 ผู้สอน: {{ classroom.teacher.first_name|default:classroom.teacher.username }}
             </p>
         </div>
-        <a href="{% url 'my_classrooms' %}" class="px-5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition">
-            ← กลับไปรายการห้องเรียน
-        </a>
+        <div class="flex items-center gap-2.5 flex-wrap">
+            {% if request.user == classroom.teacher or request.user.is_teacher %}
+            <a href="{% url 'classroom_students' code=classroom.code %}" class="px-4 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                <span>👥</span> รายชื่อนักเรียน ({{ classroom.students.count }})
+            </a>
+            {% endif %}
+            <a href="{% url 'my_classrooms' %}" class="px-4 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold rounded-2xl text-xs transition shadow-sm whitespace-nowrap">
+                ← กลับไปรายการห้องเรียน
+            </a>
+        </div>
     </div>
 
-    <!-- ปุ่มเครื่องมือสำหรับคุณครู (เพิ่มคลิป / ข้อสอบ / ไฟล์การสอน) -->
+    <!-- ปุ่มเครื่องมือสำหรับคุณครู (เพิ่มคลิป / ข้อสอบ / ไฟล์การสอน / จัดการนักเรียน) -->
     {% if request.user == classroom.teacher or request.user.is_teacher %}
-    <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-8 space-y-4">
-        <h2 class="text-lg font-bold text-bio-dark flex items-center gap-2">
-            เครื่องมือจัดการสำหรับคุณครู
-        </h2>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="bg-white/95 backdrop-blur-md rounded-[30px] border border-white shadow-lg p-6 md:p-8 space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 class="text-lg font-bold text-bio-dark flex items-center gap-2">
+                เครื่องมือจัดการสำหรับคุณครู
+            </h2>
+            {% if is_owner %}
+            <div class="flex items-center gap-2">
+                <a href="{% url 'classroom_edit' code=classroom.code %}" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition flex items-center gap-1.5">
+                    <span>✏️</span> แก้ไขชื่อห้องเรียน
+                </a>
+                <a href="{% url 'classroom_delete' code=classroom.code %}" class="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-xl text-xs transition flex items-center gap-1.5">
+                    <span>🗑️</span> ลบห้องเรียน
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- ปุ่มดูรายชื่อนักเรียน -->
+            <a href="{% url 'classroom_students' code=classroom.code %}" class="flex items-center justify-center gap-2.5 p-4 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl transition border border-bio-light shadow-sm text-sm group">
+                <span>👥</span>
+                <span>รายชื่อนักเรียน ({{ classroom.students.count }})</span>
+            </a>
+
             <!-- ปุ่มเพิ่มคลิปวิดีโอ -->
-            <a href="{% url 'classroom_add_video' code=classroom.code %}" class="flex items-center justify-center gap-3 p-4 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl transition border border-bio-light shadow-sm text-sm group">
+            <a href="{% url 'classroom_add_video' code=classroom.code %}" class="flex items-center justify-center gap-2.5 p-4 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl transition border border-bio-light shadow-sm text-sm group">
+                <span>🎥</span>
                 <span>เพิ่มคลิปวิดีโอ</span>
             </a>
 
             <!-- ปุ่มเพิ่มข้อสอบ -->
-            <a href="{% url 'classroom_add_quiz' code=classroom.code %}" class="flex items-center justify-center gap-3 p-4 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl transition border border-bio-light shadow-sm text-sm group">
+            <a href="{% url 'classroom_add_quiz' code=classroom.code %}" class="flex items-center justify-center gap-2.5 p-4 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl transition border border-bio-light shadow-sm text-sm group">
+                <span>📝</span>
                 <span>เพิ่มแบบทดสอบ/ข้อสอบ</span>
             </a>
 
             <!-- ปุ่มเพิ่มไฟล์การสอน -->
-            <a href="{% url 'classroom_add_file' code=classroom.code %}" class="flex items-center justify-center gap-3 p-4 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl transition border border-bio-light shadow-sm text-sm group">
+            <a href="{% url 'classroom_add_file' code=classroom.code %}" class="flex items-center justify-center gap-2.5 p-4 bg-bio-light hover:bg-bio-main hover:text-white text-bio-dark font-bold rounded-2xl transition border border-bio-light shadow-sm text-sm group">
+                <span>📁</span>
                 <span>อัปโหลดไฟล์การสอน</span>
             </a>
         </div>

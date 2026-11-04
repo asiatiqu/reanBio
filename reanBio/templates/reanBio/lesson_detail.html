@@ -95,7 +95,15 @@
         <!-- 📌 กล่อง "ถาม AI เกี่ยวกับบทเรียนนี้" -->
         <div class="pt-4">
             <div class="p-6 bg-bio-light/40 border border-bio-light rounded-3xl space-y-4">
-                <h3 class="text-lg font-bold text-bio-dark flex items-center gap-2">🤖 ถาม AI เกี่ยวกับบทเรียนนี้</h3>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h3 class="text-lg font-bold text-bio-dark flex items-center gap-2">🤖 ถาม AI เกี่ยวกับบทเรียนนี้</h3>
+                    {% if request.user.is_authenticated and lesson.subject == 'bio' %}
+                    <a href="{% url 'ask_ai_new' %}?lesson={{ lesson.pk }}"
+                        class="px-4 py-1.5 bg-white hover:bg-bio-light text-bio-dark font-bold rounded-full text-xs border border-bio-main/20 shadow-sm transition">
+                        🧬 เปิดห้องแชทติวเตอร์ AI ชีววิทยา (จำบทสนทนาต่อเนื่อง) →
+                    </a>
+                    {% endif %}
+                </div>
                 {% if request.user.is_authenticated %}
                 <form method="post">
                     {% csrf_token %}
