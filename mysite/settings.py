@@ -55,6 +55,7 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 
 # 📌 เอาฐานข้อมูลออกทั้งหมด (Database-free Mockup)
 DATABASES = {}
+MIGRATION_MODULES = {'reanBio': None}
 
 # 📌 เก็บ Session และ Messages ใน Cookie แทนการเขียนลงฐานข้อมูล
 SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'

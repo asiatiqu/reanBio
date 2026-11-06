@@ -15,6 +15,11 @@ media/
 # 📌 ไฟล์เก็บ API key ลับ (เช่น ANTHROPIC_API_KEY) ห้ามหลุดขึ้น GitHub เด็ดขาด
 .env
 
+# เอกสารและไฟล์ขนาดใหญ่
+*.pdf
+*.PDF
+.DS_Store
+
 # ไฟล์สำรองชั่วคราวและฐานข้อมูล
 db.sqlite3
 _to_delete/
